@@ -19,5 +19,16 @@ Type:
 def analyze_query(state: CostState) -> CostState:
     formatted_prompt = prompt.format(query=state["query"])
     result = llm.invoke(formatted_prompt)
-    state["query_type"] = result.content.strip().lower()
+    
+    # Extract just the type
+    output = result.content.strip().lower()
+    if "ec2" in output:
+        state["query_type"] = "ec2"
+    elif "service" in output:
+        state["query_type"] = "service"
+    elif "region" in output:
+        state["query_type"] = "region"
+    else:
+        state["query_type"] = "general"
+    
     return state

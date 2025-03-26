@@ -2,6 +2,9 @@
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import PromptTemplate
 from app.state import CostState
+import pprint
+
+DEBUG = False  # Toggle this to False to disable debug prints
 
 llm = ChatOllama(model="llama3")
 
@@ -16,6 +19,10 @@ Summary:
 """)
 
 def generate_response(state: CostState) -> CostState:
+    if DEBUG:
+        print("\n[generate_response] State before response generation:")
+        pprint.pprint(state)
+
     if not state.get("recommendations"):
         state["response"] = "No recommendations found. Everything looks optimized!"
         return state
@@ -23,4 +30,9 @@ def generate_response(state: CostState) -> CostState:
     formatted = prompt.format(recommendations=state["recommendations"])
     result = llm.invoke(formatted)
     state["response"] = result.content.strip()
+
+    if DEBUG:
+        print("\n[generate_response] State after response generation:")
+        pprint.pprint(state)
+
     return state
