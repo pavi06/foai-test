@@ -16,7 +16,7 @@ def generate_recommendations(state: CostState) -> CostState:
                     "cpu_utilization": utilization,
                 })
 
-    elif query_type in ["region", "service", "general"]:
+    elif query_type in ["region", "service"]:
         for service, cost in state.get("cost_data", {}).items():
             if cost > 100:
                 recommendations.append({
@@ -24,6 +24,15 @@ def generate_recommendations(state: CostState) -> CostState:
                     "cost": cost,
                     "suggestion": "Review high-spend services for optimization opportunities."
                 })
+
+    elif query_type == "general":
+        for name, item in state.get("cost_data", {}).items():
+            recommendations.append({
+                "check_name": name,
+                "issue_count": item["count"],
+                "potential_savings": item["estimated_monthly_savings"],
+                "suggestion": item["recommendation"]
+            })
 
     state["recommendations"] = recommendations
     return state

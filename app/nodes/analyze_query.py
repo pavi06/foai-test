@@ -12,6 +12,8 @@ You are a cloud FinOps assistant. Classify the user's query into one of the foll
 - region
 - service
 
+Only return one of those exact values.
+
 Query: {query}
 Type:
 """)
@@ -19,8 +21,7 @@ Type:
 def analyze_query(state: CostState) -> CostState:
     formatted_prompt = prompt.format(query=state["query"])
     result = llm.invoke(formatted_prompt)
-    
-    # Extract just the type
+
     output = result.content.strip().lower()
     if "ec2" in output:
         state["query_type"] = "ec2"
@@ -28,7 +29,9 @@ def analyze_query(state: CostState) -> CostState:
         state["query_type"] = "service"
     elif "region" in output:
         state["query_type"] = "region"
+    elif output in ["general", "waste", "optimize", "cost"]:
+        state["query_type"] = "general"
     else:
         state["query_type"] = "general"
-    
+
     return state
