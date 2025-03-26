@@ -7,3 +7,5 @@ class CostState(TypedDict, total=False):
     cost_data: dict
     recommendations: list
     response: str
+    use_mock: bool
+    debug: bool

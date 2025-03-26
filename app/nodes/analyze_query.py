@@ -2,6 +2,11 @@
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import PromptTemplate
 from app.state import CostState
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 llm = ChatOllama(model="llama3")
 
@@ -33,5 +38,8 @@ def analyze_query(state: CostState) -> CostState:
         state["query_type"] = "general"
     else:
         state["query_type"] = "general"
+
+    if DEBUG:
+        print(f"[DEBUG] analyze_query → query='{state['query']}', classified as '{state['query_type']}'")
 
     return state

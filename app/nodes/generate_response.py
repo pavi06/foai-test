@@ -3,8 +3,11 @@ from langchain_ollama import ChatOllama
 from langchain_core.prompts import PromptTemplate
 from app.state import CostState
 import pprint
+import os
+from dotenv import load_dotenv
 
-DEBUG = False  # Toggle this to False to disable debug prints
+load_dotenv()
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 llm = ChatOllama(model="llama3")
 

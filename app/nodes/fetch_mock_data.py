@@ -1,8 +1,13 @@
 # fo.ai/app/nodes/fetch_mock_data.py
 import json
+import os
+from dotenv import load_dotenv
 from app.state import CostState
 
-# Map query types to filenames
+load_dotenv()
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
+
 DATA_MAP = {
     "ec2": "data/ec2_instances.json",
     "service": "data/cost_explorer.json",
@@ -11,7 +16,17 @@ DATA_MAP = {
 }
 
 def fetch_mock_data(state: CostState) -> CostState:
+    # print("[DEBUG] fetch_mock_data state:", state)
+    use_mock = state.get("use_mock",True)
     query_type = state.get("query_type", "general")
+
+    if DEBUG:
+        print(f"[DEBUG] fetch_mock_data → use_mock={use_mock}, query_type={query_type}")
+
+    if not use_mock:
+        state["response"] = "Live AWS API integration not implemented yet."
+        return state
+
     file_path = DATA_MAP.get(query_type, "data/trusted_advisor.json")
 
     try:
