@@ -34,3 +34,7 @@ Pipfile.lock
 data/*.csv
 data/*.json
 *.env
+
+# Ignore .env files as they are usually used to set environment variables
+.env
+.envrc

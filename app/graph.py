@@ -2,7 +2,7 @@
 from langgraph.graph import StateGraph
 from app.state import CostState
 from app.nodes.analyze_query import analyze_query
-from app.nodes.fetch_mock_data import fetch_mock_data
+from app.nodes.fetch_data import fetch_data
 from app.nodes.generate_recommendations import generate_recommendations
 from app.nodes.generate_response import generate_response
 
@@ -11,7 +11,7 @@ builder = StateGraph(CostState)
 
 # Step 2: Add nodes
 builder.add_node("analyze_query", analyze_query)
-builder.add_node("fetch_mock_data", fetch_mock_data)
+builder.add_node("fetch_mock_data", fetch_data)
 builder.add_node("generate_recommendations", generate_recommendations)
 builder.add_node("generate_response", generate_response)
 

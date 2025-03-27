@@ -4,9 +4,12 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Load from .env or .envrc
 
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+ENABLE_TRUSTED_ADVISOR = os.getenv("ENABLE_TRUSTED_ADVISOR", "false").lower() == "true"
+
 
 def get_boto3_client(service: str):
     try:
@@ -24,7 +27,8 @@ def get_boto3_client(service: str):
         # Validate by calling STS
         sts = session.client("sts")
         identity = sts.get_caller_identity()
-        print(f"[AWS] Authenticated as: {identity['Arn']}")
+        if DEBUG:
+            print(f"[AWS] Authenticated as: {identity['Arn']}")
 
         return session.client(service)
 
