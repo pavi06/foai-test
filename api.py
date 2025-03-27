@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from app.graph import cost_graph
 import os
 from dotenv import load_dotenv
+from version import __version__
 
 load_dotenv()
 USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "True").lower() == "true"
@@ -13,6 +14,10 @@ app = FastAPI(
     description="API to analyze cloud cost optimization opportunities",
     version="0.1.0"
 )
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "version": __version__}
 
 class QueryRequest(BaseModel):
     query: str

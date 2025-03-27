@@ -3,15 +3,13 @@ import streamlit as st
 import requests
 import os
 from dotenv import load_dotenv
-
+from version import __version__
 load_dotenv()
 API_URL = os.getenv("FOAI_API_URL", "http://localhost:8000/analyze")
-
 st.set_page_config(page_title="fo.ai – FinOps Assistant")
 st.title("fo.ai – Cloud Cost Intelligence")
-
 query = st.text_input("Ask a cost optimization question:", placeholder="e.g. Where can I save on EC2?")
-
+st.sidebar.markdown(f"**Version:** `{__version__}`")
 if st.button("Analyze") and query:
     with st.spinner("Analyzing your AWS cost data..."):
         response = requests.post(
