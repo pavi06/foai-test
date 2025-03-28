@@ -1,4 +1,5 @@
 # foai_ui.py
+
 import streamlit as st
 import requests
 import os
@@ -54,11 +55,11 @@ with st.sidebar:
     page = st.radio("Navigation", ["Home", "EC2 Insights", "Recommendations", "Settings"], label_visibility="collapsed")
     st.markdown("---")
     st.caption(f"Version: `{__version__}`")
-    # st.session_state.dark_mode = st.toggle("🌗 Dark Mode", value=st.session_state.dark_mode)
+    st.session_state.dark_mode = st.toggle("🌗 Dark Mode", value=st.session_state.dark_mode)
     st.caption("fo.ai – Cloud Cost Intelligence")
 
 # --- Title ---
-st.title("fo.ai – Cloud Cost Intelligence")
+st.title("💸 fo.ai – AWS Cost Optimization Assistant")
 
 # --- Main Area ---
 if page == "Home":
@@ -76,6 +77,21 @@ if page == "Home":
                     result = response.json()
                     st.success("Recommendations Ready ✅")
                     st.markdown(result["response"], unsafe_allow_html=True)
+
+                    # Display raw recommendations as formatted expanders
+                    if "raw" in result and result["raw"]:
+                        st.markdown("---")
+                        st.subheader("🔍 Detailed Recommendations")
+
+                        for rec in result["raw"]:
+                            with st.expander(f"💻 {rec.get('InstanceId', 'Unknown')} – {rec.get('InstanceType', '')}"):
+                                st.markdown(f"**Recommended because:** {rec.get('Reason', 'No explanation available')}")
+                                st.markdown(f"**Estimated Monthly Savings:** `${rec.get('EstimatedSavings', 0):.2f}`")
+                                if tags := rec.get("Tags"):
+                                    tag_str = ", ".join([f"{tag['Key']}={tag['Value']}" for tag in tags])
+                                    st.markdown(f"**Tags:** `{tag_str}`")
+                    else:
+                        st.warning("No recommendations found.")
                 else:
                     st.error("API call failed. Check if the FastAPI server is running.")
 

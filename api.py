@@ -1,35 +1,59 @@
-# fo.ai/api.py
-from fastapi import FastAPI
+# api.py
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from app.graph import cost_graph
-import os
-from dotenv import load_dotenv
-from version import __version__
+from typing import Any, List
 
-load_dotenv()
-USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "True").lower() == "true"
+from data.aws.ec2 import fetch_ec2_instances
+from app.nodes.generate_recommendations import generate_recommendations
+from rules.aws.ec2_rules import get_ec2_rules
 
-app = FastAPI(
-    title="fo.ai – FinOps AI API",
-    description="API to analyze cloud cost optimization opportunities",
-    version="0.1.0"
+app = FastAPI(title="fo.ai API", version="0.1.0")
+
+# Allow UI or external clients
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-@app.get("/health")
-def health_check():
-    return {"status": "ok", "version": __version__}
-
-class QueryRequest(BaseModel):
+# Input schema
+class AnalyzeRequest(BaseModel):
     query: str
 
-class QueryResponse(BaseModel):
+# Output schema
+class Recommendation(BaseModel):
+    InstanceId: str
+    InstanceType: str
+    Reason: str
+    EstimatedSavings: float
+    Tags: Any = None  # optional
+
+class AnalyzeResponse(BaseModel):
     response: str
+    raw: List[Recommendation]
 
-@app.post("/analyze", response_model=QueryResponse)
-def analyze_query(request: QueryRequest):
-    result = cost_graph.invoke({
-        "query": request.query,
-        "use_mock": USE_MOCK_DATA
-    })
-    return {"response": result["response"]}
+@app.get("/status")
+def status_check():
+    return {"status": "ok", "message": "fo.ai API is running"}
 
+@app.post("/analyze", response_model=AnalyzeResponse)
+def analyze(request: AnalyzeRequest):
+    ec2_data = fetch_ec2_instances()
+    rules = get_ec2_rules()
+
+    recommendations = generate_recommendations(ec2_data, rules)
+
+    summary_lines = [
+        f"**💻 {r['InstanceId']}** → {r['Reason']} (💰 saves ~${r['EstimatedSavings']:.2f})"
+        for r in recommendations
+    ]
+    markdown_summary = "\n\n".join(summary_lines) if summary_lines else "_No recommendations found._"
+
+    return {
+        "response": markdown_summary,
+        "raw": recommendations
+    }

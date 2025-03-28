@@ -1,23 +1,46 @@
-from app.state import CostState
+# app/nodes/generate_recommendations.py
 
-def generate_recommendations(state: CostState) -> CostState:
-    query_type = state.get("query_type", "")
+from typing import List
+
+def generate_recommendations(ec2_data: List[dict], rules: dict) -> List[dict]:
     recommendations = []
 
-    # Handle EC2 instance analysis only
-    if query_type == "ec2" and "ec2_data" in state:
-        for instance in state["ec2_data"]:
-            utilization = instance.get("CPUUtilization", 100.0)
-            # If CPU utilization is less than 10%, recommend downsizing or stopping the instance
-            # this will move to a rules logic in the future
-            if utilization < 10.0:
-                recommendations.append({
-                    "instance_id": instance["InstanceId"],
-                    "current_type": instance["InstanceType"],
-                    "cpu_utilization": round(utilization, 2),
-                    "suggestion": "Consider downsizing or stopping this instance."
-                })
+    for instance in ec2_data:
+        instance_id = instance.get("InstanceId")
+        instance_type = instance.get("InstanceType")
+        cpu = instance.get("CPU", 100)
+        uptime = instance.get("UptimeHours", 0)
+        cost = instance.get("MonthlyCost", 0)
+        tags = instance.get("Tags", [])
 
-        state["recommendations"] = recommendations
+        # Rule conditions
+        if cpu > rules["cpu_threshold"]:
+            continue
+        if uptime < rules["min_uptime_hours"]:
+            continue
 
-    return state
+        # Check tag exclusions
+        excluded = False
+        for tag in tags:
+            tag_key = tag.get("Key", "").lower()
+            tag_val = tag.get("Value", "").lower()
+            if any(ex.lower() in f"{tag_key}={tag_val}" for ex in rules.get("excluded_tags", [])):
+                excluded = True
+                break
+        if excluded:
+            continue
+
+        # Estimate savings (mock)
+        estimated_savings = round(cost * 0.5, 2)  # 50% savings assumed
+        if estimated_savings < rules.get("min_savings_usd", 1):
+            continue
+
+        recommendations.append({
+            "InstanceId": instance_id,
+            "InstanceType": instance_type,
+            "Reason": f"Low CPU utilization ({cpu}%) and uptime > {uptime:.1f}h",
+            "EstimatedSavings": estimated_savings,
+            "Tags": tags,
+        })
+
+    return recommendations
