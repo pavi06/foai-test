@@ -1,0 +1,32 @@
+#!/opt/anaconda3/envs/foai-env/bin/python
+# replace with the path to your python interpreter
+# foai_cli.py
+import argparse
+import requests
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+API_URL = os.getenv("FOAI_API_URL", "http://localhost:8000/analyze")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="fo.ai – Cloud Cost Intelligence CLI")
+    parser.add_argument("--query", required=True, help="Cost optimization question")
+    args = parser.parse_args()
+
+    print("🔎 Sending query to fo.ai API...")
+    response = requests.post(API_URL, json={"query": args.query})
+
+    if response.status_code == 200:
+        result = response.json()
+        print("\n✅ Recommendation:")
+        print(result["response"])
+    else:
+        print(f"❌ API call failed with status {response.status_code}")
+        print(response.text)
+
+
+if __name__ == "__main__":
+    main()

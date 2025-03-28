@@ -38,3 +38,5 @@ data/*.json
 # Ignore .env files as they are usually used to set environment variables
 .env
 .envrc
+# Ignore log files and other output files
+.migration/
