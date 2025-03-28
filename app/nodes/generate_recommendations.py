@@ -1,5 +1,3 @@
-# app/nodes/generate_recommendations.py
-
 from typing import List
 
 def generate_recommendations(ec2_data: List[dict], rules: dict) -> List[dict]:
@@ -9,38 +7,42 @@ def generate_recommendations(ec2_data: List[dict], rules: dict) -> List[dict]:
         instance_id = instance.get("InstanceId")
         instance_type = instance.get("InstanceType")
         cpu = instance.get("CPU", 100)
+        avg_cpu = instance.get("CPU7dAvg", 100)
         uptime = instance.get("UptimeHours", 0)
         cost = instance.get("MonthlyCost", 0)
         tags = instance.get("Tags", [])
 
-        # Rule conditions
-        if cpu > rules["cpu_threshold"]:
-            continue
         if uptime < rules["min_uptime_hours"]:
             continue
 
-        # Check tag exclusions
-        excluded = False
-        for tag in tags:
-            tag_key = tag.get("Key", "").lower()
-            tag_val = tag.get("Value", "").lower()
-            if any(ex.lower() in f"{tag_key}={tag_val}" for ex in rules.get("excluded_tags", [])):
-                excluded = True
-                break
-        if excluded:
+        if any(
+            f"{tag.get('Key', '').lower()}={tag.get('Value', '').lower()}"
+            in [ex.lower() for ex in rules.get("excluded_tags", [])]
+            for tag in tags
+        ):
             continue
 
-        # Estimate savings (mock)
-        estimated_savings = round(cost * 0.5, 2)  # 50% savings assumed
-        if estimated_savings < rules.get("min_savings_usd", 1):
+        if avg_cpu <= rules["idle_7day_cpu_threshold"]:
+            estimated_savings = round(cost * 0.5, 2)
+            if estimated_savings >= rules["min_savings_usd"]:
+                recommendations.append({
+                    "InstanceId": instance_id,
+                    "InstanceType": instance_type,
+                    "Reason": f"7-day average CPU is low ({avg_cpu}%)",
+                    "EstimatedSavings": estimated_savings,
+                    "Tags": tags
+                })
             continue
 
-        recommendations.append({
-            "InstanceId": instance_id,
-            "InstanceType": instance_type,
-            "Reason": f"Low CPU utilization ({cpu}%) and uptime > {uptime:.1f}h",
-            "EstimatedSavings": estimated_savings,
-            "Tags": tags,
-        })
+        if cpu <= rules["cpu_threshold"]:
+            estimated_savings = round(cost * 0.4, 2)
+            if estimated_savings >= rules["min_savings_usd"]:
+                recommendations.append({
+                    "InstanceId": instance_id,
+                    "InstanceType": instance_type,
+                    "Reason": f"Low point-in-time CPU utilization ({cpu}%)",
+                    "EstimatedSavings": estimated_savings,
+                    "Tags": tags,
+                })
 
     return recommendations

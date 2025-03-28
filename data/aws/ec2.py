@@ -1,16 +1,15 @@
-# data/aws/ec2.py
-
 import os
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from data.aws.settings import get_boto3_client
-from data.aws.cloudwatch import fetch_cpu_utilization
+from data.aws.cloudwatch import fetch_cpu_utilization, get_avg_cpu_over_days
+
+
 
 load_dotenv()
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 def estimate_monthly_cost(instance_type: str) -> float:
-    """Mocked EC2 pricing logic. Replace with real pricing lookup if needed."""
     pricing = {
         "t3.micro": 8.50,
         "t3.small": 12.00,
@@ -18,7 +17,7 @@ def estimate_monthly_cost(instance_type: str) -> float:
         "m5.large": 30.00,
         "m5.xlarge": 60.00
     }
-    return pricing.get(instance_type, 20.00)  # default fallback
+    return pricing.get(instance_type, 20.00)
 
 def calculate_uptime_hours(launch_time: datetime) -> float:
     now = datetime.now(timezone.utc)
@@ -42,6 +41,7 @@ def fetch_ec2_instances() -> list[dict]:
                 launch_time = instance.get("LaunchTime")
 
                 cpu = fetch_cpu_utilization(instance_id)
+                avg_cpu_7d = get_avg_cpu_over_days(instance_id)
                 uptime_hours = calculate_uptime_hours(launch_time)
                 monthly_cost = estimate_monthly_cost(instance_type)
 
@@ -51,13 +51,14 @@ def fetch_ec2_instances() -> list[dict]:
                     "AvailabilityZone": az,
                     "State": state,
                     "CPU": cpu,
+                    "CPU7dAvg": avg_cpu_7d,
                     "UptimeHours": uptime_hours,
                     "MonthlyCost": monthly_cost,
                     "Tags": tags
                 })
 
                 if DEBUG:
-                    print(f"[DEBUG] {instance_id}: CPU={cpu}%, Uptime={uptime_hours}h, Cost=${monthly_cost:.2f}")
+                    print(f"[DEBUG] {instance_id}: CPU={cpu}%, Avg7d={avg_cpu_7d}%, Uptime={uptime_hours}h, Cost=${monthly_cost:.2f}")
 
         return instances
 

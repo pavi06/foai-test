@@ -5,5 +5,6 @@ def get_ec2_rules():
         "cpu_threshold": 10,
         "min_uptime_hours": 24,
         "excluded_tags": ["env=prod", "do-not-touch"],
-        "min_savings_usd": 5
+        "min_savings_usd": 5,
+        "idle_7day_cpu_threshold": 5 
     }

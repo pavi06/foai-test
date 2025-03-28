@@ -8,109 +8,65 @@ from version import __version__
 
 # Load environment variables
 load_dotenv()
-API_URL = os.getenv("FOAI_API_URL", "http://localhost:8000/analyze")
+API_URL = os.getenv("FOAI_API_URL", "http://localhost:8000")
 USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
 
-# Sidebar-based navigation theme toggle
-if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = True
-
-theme = "dark" if st.session_state.dark_mode else "light"
-
-# Streamlit page config
+# Page config
 st.set_page_config(page_title="fo.ai – AWS Cost Optimizer", layout="wide")
 
-# --- Custom Theme + Sidebar Styling ---
-if theme == "dark":
-    st.markdown("""
-        <style>
-        .main { padding: 2rem; }
-        .block-container { padding-top: 1rem; }
-        .st-emotion-cache-6qob1r { background-color: #111827 !important; color: #F3F4F6; }
-        .st-emotion-cache-1v0mbdj, .st-emotion-cache-13ln4jf { background-color: #1f2937 !important; border-radius: 10px; }
-        .stButton>button { background-color: #10b981; color: white; border-radius: 8px; padding: 0.5rem 1rem; }
-        .stButton>button:hover { background-color: #059669; }
-        .stTabs [data-baseweb="tab"] { font-size: 1rem; padding: 0.5rem 1rem; }
-        .stTabs [aria-selected="true"] { background-color: #374151; color: white; border-radius: 6px; }
-        </style>
-    """, unsafe_allow_html=True)
+# Set light theme always
+st.markdown("""
+    <style>
+    .main { padding: 2rem; }
+    .block-container { padding-top: 1rem; }
+    .stButton>button { background-color: #2563eb; color: white; border-radius: 8px; padding: 0.5rem 1rem; }
+    .stButton>button:hover { background-color: #1d4ed8; }
+    .stExpanderHeader { font-weight: bold; }
+    </style>
+""", unsafe_allow_html=True)
 
-elif theme == "light":
-    st.markdown("""
-        <style>
-        .main { padding: 2rem; }
-        .block-container { padding-top: 1rem; }
-        .st-emotion-cache-6qob1r { background-color: #ffffff !important; color: #111827; }
-        .st-emotion-cache-1v0mbdj, .st-emotion-cache-13ln4jf { background-color: #f9fafb !important; border-radius: 10px; }
-        .stButton>button { background-color: #2563eb; color: white; border-radius: 8px; padding: 0.5rem 1rem; }
-        .stButton>button:hover { background-color: #1d4ed8; }
-        .stTabs [data-baseweb="tab"] { font-size: 1rem; padding: 0.5rem 1rem; }
-        .stTabs [aria-selected="true"] { background-color: #e0e7ff; color: #1e3a8a; border-radius: 6px; }
-        </style>
-    """, unsafe_allow_html=True)
-
-# --- Sidebar Navigation ---
+# --- Sidebar ---
 with st.sidebar:
-    st.markdown("## 🖥️ Main Menu")
-    page = st.radio("Navigation", ["Home", "EC2 Insights", "Recommendations", "Settings"], label_visibility="collapsed")
-    st.markdown("---")
+    st.title("fo.ai")
+    st.caption("Cloud Cost Intelligence")
     st.caption(f"Version: `{__version__}`")
-    st.session_state.dark_mode = st.toggle("🌗 Dark Mode", value=st.session_state.dark_mode)
-    st.caption("fo.ai – Cloud Cost Intelligence")
 
-# --- Title ---
-st.title("💸 fo.ai – AWS Cost Optimization Assistant")
+    # Health check
+    try:
+        status = requests.get(f"{API_URL}/status").json()
+        st.success(f"🟢 {status['message']}")
+    except Exception:
+        st.error("🔴 API offline or unreachable")
 
 # --- Main Area ---
-if page == "Home":
-    col1, col2 = st.columns([3, 1])
+st.title("💸 AWS Cost Optimization Assistant")
 
-    with col1:
-        st.info(f"**Mode:** {'🔁 Mock Data' if USE_MOCK_DATA else '📡 Live AWS Data'}")
-        query = st.text_input("Ask a cost optimization question:",
-                              placeholder="e.g. Where can I save on EC2?")
+st.info(f"**Mode:** {'🔁 Mock Data' if USE_MOCK_DATA else '📡 Live AWS Data'}")
 
-        if st.button("Analyze") and query:
-            with st.spinner("Analyzing your AWS cost data..."):
-                response = requests.post(API_URL, json={"query": query})
-                if response.status_code == 200:
-                    result = response.json()
-                    st.success("Recommendations Ready ✅")
-                    st.markdown(result["response"], unsafe_allow_html=True)
+query = st.text_input("Ask a cost optimization question:")
+if st.button("Analyze") and query:
+    with st.spinner("Analyzing your AWS cost data..."):
+        try:
+            response = requests.post(f"{API_URL}/analyze", json={"query": query})
+            response.raise_for_status()
+            result = response.json()
 
-                    # Display raw recommendations as formatted expanders
-                    if "raw" in result and result["raw"]:
-                        st.markdown("---")
-                        st.subheader("🔍 Detailed Recommendations")
+            st.success("Recommendations Ready ✅")
+            st.markdown(result["response"], unsafe_allow_html=True)
 
-                        for rec in result["raw"]:
-                            with st.expander(f"💻 {rec.get('InstanceId', 'Unknown')} – {rec.get('InstanceType', '')}"):
-                                st.markdown(f"**Recommended because:** {rec.get('Reason', 'No explanation available')}")
-                                st.markdown(f"**Estimated Monthly Savings:** `${rec.get('EstimatedSavings', 0):.2f}`")
-                                if tags := rec.get("Tags"):
-                                    tag_str = ", ".join([f"{tag['Key']}={tag['Value']}" for tag in tags])
-                                    st.markdown(f"**Tags:** `{tag_str}`")
-                    else:
-                        st.warning("No recommendations found.")
-                else:
-                    st.error("API call failed. Check if the FastAPI server is running.")
+            if "raw" in result and result["raw"]:
+                st.markdown("---")
+                st.subheader("🔍 Detailed Recommendations")
 
-    with col2:
-        st.subheader("🧪 UI Controls")
-        st.markdown("_More toggles coming soon (region, service, etc.)_")
+                for rec in result["raw"]:
+                    with st.expander(f"💻 {rec.get('InstanceId')} – {rec.get('InstanceType')}"):
+                        st.markdown(f"**Recommended because:** {rec.get('Reason', 'No explanation available')}")
+                        st.markdown(f"**Estimated Monthly Savings:** `${rec.get('EstimatedSavings', 0):.2f}`")
+                        if tags := rec.get("Tags"):
+                            tag_str = ", ".join([f"{tag['Key']}={tag['Value']}" for tag in tags])
+                            st.markdown(f"**Tags:** `{tag_str}`")
+            else:
+                st.warning("No recommendations found.")
 
-elif page == "EC2 Insights":
-    st.subheader("EC2 Inventory Snapshot")
-    st.markdown("_This is a mock view for now – real instance data coming soon._")
-    st.dataframe([
-        {"Instance ID": "i-1234", "Type": "t3.large", "CPU %": 12, "Region": "us-east-1"},
-        {"Instance ID": "i-5678", "Type": "m5.xlarge", "CPU %": 4, "Region": "us-west-2"}
-    ])
-
-elif page == "Recommendations":
-    st.subheader("Optimization Opportunities")
-    st.markdown("_Ask a question on the Home screen to get cost-saving suggestions from fo.ai_")
-
-elif page == "Settings":
-    st.subheader("⚙️ Settings (Coming Soon)")
-    st.markdown("Here you'll be able to configure services, thresholds, and preferences.")
+        except Exception as e:
+            st.error(f"API call failed: {e}")
