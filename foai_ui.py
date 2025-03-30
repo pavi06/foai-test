@@ -12,7 +12,7 @@ API_URL = os.getenv("FOAI_API_URL", "http://localhost:8000")
 USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
 
 # Page config
-st.set_page_config(page_title="fo.ai – AWS Cost Optimizer", layout="wide")
+st.set_page_config(page_title="fo.ai – Cloud Cost Intelligence", layout="wide")
 
 # Set light theme always
 st.markdown("""
@@ -39,7 +39,7 @@ with st.sidebar:
         st.error("🔴 API offline or unreachable")
 
 # --- Main Area ---
-st.title("💸 AWS Cost Optimization Assistant")
+st.title("Cloud Cost Intelligence")
 
 st.info(f"**Mode:** {'🔁 Mock Data' if USE_MOCK_DATA else '📡 Live AWS Data'}")
 

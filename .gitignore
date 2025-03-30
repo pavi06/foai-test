@@ -40,3 +40,5 @@ data/*.json
 .envrc
 # Ignore log files and other output files
 .migration/
+mock_*
+logs/*

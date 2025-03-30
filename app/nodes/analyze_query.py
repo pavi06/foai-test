@@ -7,8 +7,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3")
 
-llm = ChatOllama(model="llama3")
+llm = ChatOllama(model=LLM_MODEL)
+
 
 prompt = PromptTemplate.from_template("""
 You are a cloud FinOps assistant. Classify the user's query into one of the following types:
