@@ -1,4 +1,5 @@
-# foai_ui.py – v0.1.3 UI Upgrade
+
+# foai_ui.py – v0.1.3 Streaming Fix
 
 import streamlit as st
 import requests
@@ -21,45 +22,38 @@ st.set_page_config(page_title="fo.ai – Cloud Cost Intelligence", layout="wide"
 
 # === Inject Custom CSS ===
 st.markdown(f"""
-    <style>
-    html, body, .main {{
-        background-color: {PANEL_BG};
-        color: {TEXT_COLOR};
-    }}
-    .block-container {{ padding-top: 2rem; }}
-    .stSidebar {{ background-color: {SIDEBAR_BG}; }}
-    .stButton>button {{
-        background-color: #f0f0f0;
-        color: #111;
-        border: 1px solid #ddd;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-    }}
-    .stButton>button:hover {{
-        background-color: #e5e5e5;
-    }}
-    .stExpanderHeader {{ font-weight: bold; }}
-    </style>
+<style>
+html, body, .main {{
+    background-color: {PANEL_BG};
+    color: {TEXT_COLOR};
+}}
+.block-container {{ padding-top: 2rem; }}
+.stSidebar {{ background-color: {SIDEBAR_BG}; }}
+.stButton>button {{
+    background-color: #f0f0f0;
+    color: #111;
+    border: 1px solid #ddd;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+}}
+.stButton>button:hover {{
+    background-color: #e5e5e5;
+}}
+.stExpanderHeader {{ font-weight: bold; }}
+</style>
 """, unsafe_allow_html=True)
 
 # === Sidebar ===
 with st.sidebar:
     st.title("fo.ai")
     st.caption("Cloud Cost Intelligence")
-    
-
 
     st.markdown("---")
-
-    # UI mode toggle
-    use_chat = st.toggle("💬 Chat Mode", value=False)
-
-    # Data mode toggle
+    use_chat = st.toggle("💬 Chat Mode", value=True)
     use_live_data = st.toggle("📡 Live Data", value=not USE_MOCK_DATA)
-
-   
     st.markdown("---")
-    st.markdown(" " * 20)
+    st.markdown(" " * 40)
+
     try:
         status = requests.get(f"{API_URL}/status").json()
         st.success(f"🟢 {status['message']}")
@@ -72,7 +66,6 @@ st.title("Cloud Cost Intelligence")
 
 if not use_chat:
     st.info(f"**Mode:** {'Live AWS Data' if use_live_data else 'Mock Data'}")
-
     query = st.text_input("Ask a question about your AWS costs:")
 
     if st.button("Analyze") and query:
@@ -101,7 +94,7 @@ if not use_chat:
 
 # === Chat UI Mode ===
 else:
-    st.info("🔄 Chat mode streams live insights from the AI assistant.")
+    st.info("💬 Chat mode streams live insights from the AI assistant.")
 
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
@@ -117,7 +110,10 @@ else:
 
         with st.chat_message("assistant"):
             placeholder = st.empty()
+            placeholder.markdown("_Thinking..._")
             full_response = ""
+            buffer = ""
+            update_every = 5
 
             try:
                 with requests.post(
@@ -126,10 +122,14 @@ else:
                     stream=True,
                 ) as r:
                     r.raise_for_status()
-                    for chunk in r.iter_content(chunk_size=256, decode_unicode=True):
-                        full_response += chunk
-                        placeholder.markdown(full_response)
+                    for i, chunk in enumerate(r.iter_content(chunk_size=1, decode_unicode=True)):
+                        if chunk:
+                            buffer += chunk
+                            full_response += chunk
+                            if i % update_every == 0:
+                                placeholder.markdown(full_response)
 
-                st.session_state.chat_history.append({"role": "assistant", "content": full_response})
+                placeholder.markdown(full_response.strip())
+                st.session_state.chat_history.append({"role": "assistant", "content": full_response.strip()})
             except Exception as e:
                 placeholder.error(f"Streaming failed: {e}")
