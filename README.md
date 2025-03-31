@@ -1,88 +1,154 @@
-# fo.ai – FinOps AI
 
-A modular, LangGraph-powered AI assistant that helps identify AWS cost savings using mocked or real cloud data.
+# fo.ai – Cloud Cost Intelligence
+
+**Version:** `v0.1.3`  
+**Tagline:** Your smart assistant for optimizing cloud costs, starting with AWS EC2.
 
 ---
 
-## 🚀 How to Run
+## 🧭 Overview
 
-### 1. Set up the environment
+`fo.ai` is a lightweight, intelligent tool for identifying cost-saving opportunities in your AWS environment. Backed by LLMs, rule engines, Redis memory, and a clean UI, it supports both one-shot queries and streaming AI responses.
+
+---
+
+## 🚀 Features
+
+- ✅ EC2 instance cost analysis using CloudWatch metrics
+- ✅ Static rules engine with customizable logic
+- ✅ Redis-backed memory (for future personalization)
+- ✅ LLM-powered summaries (streamed or static)
+- ✅ FastAPI backend for APIs
+- ✅ Streamlit web UI with toggle modes
+- ✅ CLI tool for local interaction
+- ✅ Logging, live tailing, and process control
+
+---
+
+## 🛠️ Setup Instructions
+
+### 1. Clone the repo and install requirements
+
 ```bash
-conda activate foai-env
+git clone https://github.com/your-org/fo.ai.git
+cd fo.ai
+conda activate foai-env  # or your preferred virtualenv
 pip install -r requirements.txt
 ```
 
-### 2. Start the backend API
-```bash
-uvicorn api:app --reload
-```
-
-### 3. Start the Streamlit frontend
-```bash
-streamlit run streamlit_app.py
-```
-
-### 4. Use the CLI tool (optional)
-```bash
-python main.py
-```
-
----
-
-## ⚙️ Configuration via `.env`
+### 2. Setup `.env`
 
 ```env
-FOAI_WEB_URL=http://localhost:8501/
-FOAI_API_URL=http://localhost:8000/analyze
-USE_MOCK_DATA=True
-DEBUG=True
+FOAI_API_URL=http://localhost:8000
+USE_MOCK_DATA=true
 ```
 
 ---
 
-## 📬 API Endpoint
-### `POST /analyze`
-#### Input:
-```json
-{
-  "query": "Where can I save AWS costs?"
-}
-```
-#### Output:
-```json
-{
-  "response": "Here's a summary of the cost optimization recommendations..."
-}
+## 🧪 Running Locally
+
+### Option 1: Full app (API + UI)
+
+```bash
+python foai_cli.py server start all
 ```
 
-Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+Then open: [http://localhost:8501](http://localhost:8501)
 
 ---
 
-## 🧪 Mock Data Location
-- `data/ec2_instances.json`
-- `data/cost_explorer.json`
-- `data/trusted_advisor.json`
+## 🧰 CLI Usage
+
+```bash
+python foai_cli.py --help
+```
+
+### 🧠 Ask a cost question
+
+```bash
+python foai_cli.py ask "How can I optimize EC2 usage in us-west-1?"
+```
+
+### 🔄 Stream LLM output
+
+```bash
+python foai_cli.py ask "Are there underutilized EC2s?" --stream
+```
+
+### 📡 Check API status
+
+```bash
+python foai_cli.py status
+```
+
+### ☁️ Manage Servers
+
+```bash
+python foai_cli.py server start all
+python foai_cli.py server stop all
+python foai_cli.py server forcekill all
+```
+
+### 📜 View Logs
+
+```bash
+python foai_cli.py logs api
+python foai_cli.py logs ui
+```
 
 ---
 
-## 📁 Directory Structure
+## ⚡ Setup CLI Alias (Optional)
 
+To use `foai` as a global command:
+
+```bash
+echo 'alias foai="python /full/path/to/foai_cli.py"' >> ~/.zshrc  # or ~/.bashrc
+source ~/.zshrc  # or source ~/.bashrc
 ```
-fo.ai/
-├── app/                # LangGraph logic and nodes
-├── data/               # Mock data files
-├── tests/              # Unit tests
-├── main.py             # CLI entry point
-├── api.py              # FastAPI backend
-├── streamlit_app.py    # Streamlit frontend
-├── requirements.txt
-├── .env
-└── README.md
+
+Then use like:
+
+```bash
+foai ask "How do I save on EC2?"
+foai server start all
 ```
 
 ---
 
-## 📚 See Also
-- `features.md`: Feature tracker
-- `workflow.md`: Full architectural flow & LangGraph design
+## 🧪 Development Workflow
+
+- Main API: [`api.py`](./api.py)
+- CLI Tool: [`foai_cli.py`](./foai_cli.py)
+- Web UI: [`foai_ui.py`](./foai_ui.py)
+- Rule Engine: [`rules/aws/ec2_rules.py`](./rules/aws/ec2_rules.py)
+- Redis Memory: [`memory/`](./memory/)
+- Logs: `logs/api.log`, `logs/ui.log`
+
+---
+
+## 🧭 Roadmap
+
+- [x] EC2 Analyzer (mock + live)
+- [x] Streaming LLM responses
+- [x] CLI support + logging
+- [ ] Personalized rules via Redis (Spike 1.2)
+- [ ] LangGraph memory node (Spike 3)
+- [ ] S3 and other service optimizations
+- [ ] Slack/Teams integrations
+
+---
+
+## 🧠 Powered By
+
+- [LangChain](https://github.com/langchain-ai/langchain)
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [Streamlit](https://streamlit.io/)
+- [Redis](https://redis.io/)
+- [Open Source LLMs via Ollama](https://ollama.com/)
+
+---
+
+## 👥 License & Credits
+
+MIT License – Built with ♥ by cloud cost nerds.

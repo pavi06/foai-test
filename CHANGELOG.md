@@ -1,11 +1,17 @@
-## [v0.1.2] – 2025-03-31
+
+## [v0.1.3] – 2025-03-31
 
 ### Added
-- ✨ Streaming LLM responses via `/analyze/stream`
-- 🧠 `stream_response()` using LangChain + ChatOllama
-- 🧾 `get_recommendations_and_prompt()` wrapper for prompt formatting
-- 🖥️ Streamlit UI: Sidebar mode toggle + real-time streaming markdown
+- ✅ CLI streaming output with `--stream` flag
+- ☠️ `forcekill` command to terminate orphaned API/UI processes
+- 📜 Log redirection to `logs/api.log` and `logs/ui.log`
+- 📡 `foai logs <api|ui>` to tail logs via CLI
+- 🧾 Streamlit UI: Markdown buffering + "Thinking..." state
+- 🎨 Chat mode ON by default, theme cleanup, sidebar toggles
+- 🧰 CLI Help text for all commands (`--help`)
+- 📄 User-facing `README.md`, `CONTRIBUTING.md`, and `WORKFLOW.md`
 
 ### Fixed
-- Legacy `EC2_RULES` compatibility via `get_ec2_rules()`
-- API import fixes, EC2 fetch adjustments
+- 🐛 Streamed token rendering glitches in chat
+- 📁 PID file issues with `.foai/` cleanup
+- 📤 API and UI logs now rotate properly on restart

@@ -1,92 +1,62 @@
-# fo.ai – Internal Workflow Overview
 
-This document describes how fo.ai works under the hood and how to transfer the project context to a new developer or chat session.
+# fo.ai – Workflow & Architecture
 
-Prompt : "I'm working on a project called fo.ai – here's workflow.md and features.md. Let's continue."
-
----
-
-## 🔄 High-Level Workflow
-
-```
-User Query
-   ↓
-analyze_query → fetch_mock_data → generate_recommendations → generate_response
-```
-
-Powered by **LangGraph’s StateGraph**, each node takes in a shared `CostState`, updates it, and passes it along.
+This document outlines the system design, runtime workflow, and architecture decisions for `fo.ai`.
 
 ---
 
-## 🧠 LangGraph Nodes
+## 🧠 Core Components
 
-### `analyze_query`
-- Uses `ChatOllama` (Llama 3) to classify the query
-- Sets `query_type`: `ec2`, `service`, `region`, or `general`
-
-### `fetch_mock_data`
-- Loads data from `data/*.json`
-- Honors `use_mock` flag
-- Will later call real AWS APIs if `use_mock=False`
-
-### `generate_recommendations`
-- Rule-based recommendations
-  - EC2 underutilization (CPU < 10%)
-  - Cost thresholds (>$100)
-  - Trusted Advisor checks
-
-### `generate_response`
-- Uses LLM to summarize recommendations into Markdown/HTML
+| Layer      | Description |
+|------------|-------------|
+| `api.py`   | FastAPI entrypoint for LLM and cost logic |
+| `foai_ui.py` | Streamlit UI – analyze vs. chat toggle |
+| `foai_cli.py` | Local CLI with server management and logs |
+| `rules/aws/` | Static cost optimization rules per service |
+| `data/aws/` | EC2 fetchers (CloudWatch / Boto3) |
+| `memory/` | Redis-backed memory + user context |
+| `.env`     | Config for API URL and mock/live toggles |
 
 ---
 
-## 🧾 CostState (Shared LangGraph State)
-```python
-class CostState(TypedDict, total=False):
-    query: str
-    query_type: Literal["general", "ec2", "region", "service"]
-    ec2_data: list
-    cost_data: dict
-    recommendations: list
-    response: str
-    use_mock: bool
-    debug: bool
-```
+## 🔁 Workflow (Streaming Query)
+
+1. User submits question via UI or CLI
+2. `FastAPI /analyze/stream` endpoint triggers:
+   - Fetch EC2 data (live or mock)
+   - Run through rule engine
+   - Format natural language prompt
+3. LangChain + Ollama streams response
+4. Redis memory stores question & response (if enabled)
+5. UI/CLI renders stream token-by-token
 
 ---
 
-## ⚙️ Configuration via `.env`
-- All key runtime flags are read from `.env`
-  - `USE_MOCK_DATA`
-  - `DEBUG`
-- Flags are passed into LangGraph state (`state['use_mock']`, `state['debug']`)
+## 🧪 Development Tips
+
+- Use `.env` to toggle between live and mock data
+- Logs are saved in `logs/api.log` and `logs/ui.log`
+- Run CLI tests with `test_foai_cli.sh`
 
 ---
 
-## 🧠 LLM Usage Summary
-- LLM is used in two places:
-  1. `analyze_query` (to classify the question)
-  2. `generate_response` (to summarize recs in plain English)
+## 🌱 Next Milestones
+
+- Personalized Redis rules (Spike 1.2)
+- LangGraph memory integration (Spike 3)
+- Add support for S3, RDS, and multi-cloud
 
 ---
 
-## 🔁 Switching Chats / Sessions
+## 🔄 Git Flow
 
-If this chat becomes too long or slow:
-- Open a **new ChatGPT thread**
-- Copy-paste this `workflow.md` and `features.md`
-- Say: `I was working on a project called fo.ai – here's the architecture + feature set. Let's continue.`
-
----
-
-## 🧱 How to Extend
-- Add new node functions in `app/nodes/`
-- Update `app/graph.py` with new LangGraph edges
-- Add tests under `/tests`
-- Add new query types and routing logic in `analyze_query`
-- Swap in real AWS APIs via `boto3` when `use_mock=False`
+- Use `main` for stable
+- Create branches: `feature/XX-description`
+- Push, PR, and test
 
 ---
 
-_Last updated after MVP v0.1.0 merge to main_ ✅
+## 👥 Maintainers
 
+- You (Vedanta) – Lead Architect
+- ChatGPT (Co-Pilot 😉)

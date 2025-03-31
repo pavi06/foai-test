@@ -7,27 +7,31 @@ import time
 import requests
 import sys
 from pathlib import Path
-from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-
 BASE_URL = os.getenv("FOAI_API_URL", "http://localhost:8000")
 PID_DIR = Path(".foai")
+LOG_DIR = Path("logs")
 API_PID_FILE = PID_DIR / "api.pid"
 UI_PID_FILE = PID_DIR / "ui.pid"
+API_LOG = LOG_DIR / "api.log"
+UI_LOG = LOG_DIR / "ui.log"
 
 def start_server(target):
     PID_DIR.mkdir(exist_ok=True)
+    LOG_DIR.mkdir(exist_ok=True)
     if target in ("api", "all"):
-        api_proc = subprocess.Popen(["uvicorn", "api:app", "--reload"])
-        API_PID_FILE.write_text(str(api_proc.pid))
-        print(f"[fo.ai] API server started with PID {api_proc.pid}")
+        with API_LOG.open("w") as api_log:
+            api_proc = subprocess.Popen(["uvicorn", "api:app", "--reload"], stdout=api_log, stderr=api_log)
+            API_PID_FILE.write_text(str(api_proc.pid))
+            print(f"[fo.ai] API server started with PID {api_proc.pid}")
     if target in ("ui", "all"):
-        ui_proc = subprocess.Popen(["streamlit", "run", "foai_ui.py"])
-        UI_PID_FILE.write_text(str(ui_proc.pid))
-        print(f"[fo.ai] UI started with PID {ui_proc.pid}")
+        with UI_LOG.open("w") as ui_log:
+            ui_proc = subprocess.Popen(["streamlit", "run", "foai_ui.py"], stdout=ui_log, stderr=ui_log)
+            UI_PID_FILE.write_text(str(ui_proc.pid))
+            print(f"[fo.ai] UI started with PID {ui_proc.pid}")
 
 def stop_server(target):
     if target in ("api", "all") and API_PID_FILE.exists():
@@ -68,6 +72,14 @@ def force_kill_all():
     subprocess.run("pkill -f 'streamlit'", shell=True)
     print("[fo.ai] All known processes terminated.")
 
+def tail_logs(target):
+    if target == "api" and API_LOG.exists():
+        subprocess.run(["tail", "-f", str(API_LOG)])
+    elif target == "ui" and UI_LOG.exists():
+        subprocess.run(["tail", "-f", str(UI_LOG)])
+    else:
+        print(f"[fo.ai] No log file found for {target}")
+
 def check_status():
     try:
         res = requests.get(f"{BASE_URL}/status", timeout=2)
@@ -106,15 +118,15 @@ if __name__ == "__main__":
 
     subparsers = parser.add_subparsers(dest="command")
 
-    # Server commands
     server_cmd = subparsers.add_parser("server", help="Manage API and UI processes")
     server_cmd.add_argument("action", choices=["start", "stop", "forcekill"], help="Start, stop, or force-kill the servers")
     server_cmd.add_argument("target", choices=["api", "ui", "all"], help="Which process to manage")
 
-    # Status check
+    logs_cmd = subparsers.add_parser("logs", help="Tail the API or UI logs")
+    logs_cmd.add_argument("target", choices=["api", "ui"], help="Which log file to tail")
+
     status_cmd = subparsers.add_parser("status", help="Check if the fo.ai API is online")
 
-    # Ask query
     query_cmd = subparsers.add_parser("ask", help="Ask a question about your AWS costs")
     query_cmd.add_argument("query", help="The natural language query to ask fo.ai")
     query_cmd.add_argument(
@@ -131,6 +143,8 @@ if __name__ == "__main__":
             stop_server(args.target)
         elif args.action == "forcekill":
             force_kill_all()
+    elif args.command == "logs":
+        tail_logs(args.target)
     elif args.command == "status":
         check_status()
     elif args.command == "ask":
