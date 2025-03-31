@@ -42,3 +42,4 @@ data/*.json
 .migration/
 mock_*
 logs/*
+*.*.pid
