@@ -1,20 +1,27 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Any, List
 from dotenv import load_dotenv
 import os
 import json
 
+# from data.aws.ec2 import fetch_ec2_data  # or however you collect it
 from data.aws.ec2 import fetch_ec2_instances
+
 from app.nodes.generate_recommendations import generate_recommendations
+from app.nodes.generate_recommendations import get_recommendations_and_prompt
+from app.nodes.generate_response import stream_response
+
+from rules.aws.ec2_rules import EC2_RULES  # your default rules config # deprecated - use get_ec2_rules
 from rules.aws.ec2_rules import get_ec2_rules
 from memory.redis_memory import append_to_list, get_list
 
 load_dotenv()
 USERNAME = os.getenv("USERNAME", "default")
 
-app = FastAPI(title="fo.ai API", version="0.1.0")
+app = FastAPI(title="fo.ai API - Cloud Cost Intelligence", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,6 +87,22 @@ def analyze(request: AnalyzeRequest):
         "response": markdown_summary,
         "raw": recommendations
     }
+
+class AnalyzeStreamRequest(BaseModel):
+    user_id: str
+    instance_ids: List[str] = []
+
+@app.post("/analyze/stream")
+async def stream_analysis(req: AnalyzeStreamRequest):
+    ec2_data = fetch_ec2_instances(req.instance_ids)
+    result = get_recommendations_and_prompt(ec2_data, EC2_RULES)
+    prompt = result["prompt"]
+
+    def stream_gen():
+        yield from stream_response(prompt)
+
+    return StreamingResponse(stream_gen(), media_type="text/plain")
+
 
 @app.get("/memory", response_model=list)
 def get_memory():

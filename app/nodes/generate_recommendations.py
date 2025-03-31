@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Dict
+
 
 def generate_recommendations(ec2_data: List[dict], rules: dict) -> List[dict]:
     recommendations = []
@@ -46,3 +47,34 @@ def generate_recommendations(ec2_data: List[dict], rules: dict) -> List[dict]:
                 })
 
     return recommendations
+
+
+def format_recommendations_as_prompt(recommendations: List[dict]) -> str:
+    """Convert recommendations into a prompt suitable for LLM summarization."""
+    if not recommendations:
+        return "There are no cost-saving opportunities for the selected EC2 instances."
+
+    lines = [
+        "Summarize the following EC2 cost optimization findings in plain English:\n"
+    ]
+
+    for rec in recommendations:
+        line = (
+            f"- Instance {rec['InstanceId']} ({rec['InstanceType']}): "
+            f"{rec['Reason']}, estimated monthly savings of ${rec['EstimatedSavings']}"
+        )
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
+def get_recommendations_and_prompt(
+    ec2_data: List[dict], rules: dict
+) -> Dict[str, object]:
+    """Return both structured recommendations and a formatted LLM prompt."""
+    recs = generate_recommendations(ec2_data, rules)
+    prompt = format_recommendations_as_prompt(recs)
+    return {
+        "structured": recs,
+        "prompt": prompt,
+    }

@@ -8,3 +8,6 @@ def get_ec2_rules():
         "min_savings_usd": 5,
         "idle_7day_cpu_threshold": 5 
     }
+
+# maintain backwards compatibility
+EC2_RULES = get_ec2_rules()

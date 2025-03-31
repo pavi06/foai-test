@@ -5,12 +5,16 @@ from app.state import CostState
 import pprint
 import os
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
+from typing import Generator
+
 
 load_dotenv()
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3")
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.5"))
 
-llm = ChatOllama(model=LLM_MODEL)
+llm = ChatOllama(model=LLM_MODEL, temprature=LLM_TEMPERATURE)
 
 prompt = PromptTemplate.from_template("""
 You are a FinOps assistant. Summarize the following cost optimization recommendations in plain language.
@@ -40,3 +44,10 @@ def generate_response(state: CostState) -> CostState:
         pprint.pprint(state)
 
     return state
+
+def stream_response(prompt: str) -> Generator[str, None, None]:
+    """Yields streamed LLM response token by token."""
+    message = HumanMessage(content=prompt)
+    for chunk in llm.stream([message]):
+        if chunk.content:
+            yield chunk.content

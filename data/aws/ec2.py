@@ -1,10 +1,10 @@
 import os
 from datetime import datetime, timezone
+from typing import List, Optional
 from dotenv import load_dotenv
+
 from data.aws.settings import get_boto3_client
 from data.aws.cloudwatch import fetch_cpu_utilization, get_avg_cpu_over_days
-
-
 
 load_dotenv()
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
@@ -24,7 +24,8 @@ def calculate_uptime_hours(launch_time: datetime) -> float:
     delta = now - launch_time
     return round(delta.total_seconds() / 3600, 2)
 
-def fetch_ec2_instances() -> list[dict]:
+def fetch_ec2_instances(instance_ids: Optional[List[str]] = None) -> List[dict]:
+    """Fetches EC2 instance details and metrics. Can filter by instance_ids."""
     ec2 = get_boto3_client("ec2")
 
     try:
@@ -34,6 +35,10 @@ def fetch_ec2_instances() -> list[dict]:
         for reservation in response.get("Reservations", []):
             for instance in reservation.get("Instances", []):
                 instance_id = instance.get("InstanceId")
+                
+                if instance_ids and instance_id not in instance_ids:
+                    continue
+
                 instance_type = instance.get("InstanceType")
                 state = instance.get("State", {}).get("Name")
                 az = instance.get("Placement", {}).get("AvailabilityZone")
