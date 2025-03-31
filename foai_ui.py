@@ -1,4 +1,4 @@
-# foai_ui.py – Clean UI for fo.ai
+# foai_ui.py – v0.1.3 UI Upgrade
 
 import streamlit as st
 import requests
@@ -6,7 +6,12 @@ import os
 from dotenv import load_dotenv
 from version import __version__
 
-# Load .env and base settings
+# === Configurable Theme ===
+SIDEBAR_BG = "#48A6A7"     
+PANEL_BG = "#F2EFE7"       
+TEXT_COLOR = "#006A71"     
+
+# Load .env
 load_dotenv()
 API_URL = os.getenv("FOAI_API_URL", "http://localhost:8000")
 USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
@@ -14,53 +19,63 @@ USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
 # Page setup
 st.set_page_config(page_title="fo.ai – Cloud Cost Intelligence", layout="wide")
 
-# Inject custom minimalist theme
-st.markdown("""
+# === Inject Custom CSS ===
+st.markdown(f"""
     <style>
-    html, body, .main {
-        background-color: #ffffff;
-        color: #333333;
-    }
-    .block-container { padding-top: 2rem; }
-    .stButton>button {
+    html, body, .main {{
+        background-color: {PANEL_BG};
+        color: {TEXT_COLOR};
+    }}
+    .block-container {{ padding-top: 2rem; }}
+    .stSidebar {{ background-color: {SIDEBAR_BG}; }}
+    .stButton>button {{
         background-color: #f0f0f0;
         color: #111;
         border: 1px solid #ddd;
         padding: 0.5rem 1rem;
         border-radius: 8px;
-    }
-    .stButton>button:hover {
+    }}
+    .stButton>button:hover {{
         background-color: #e5e5e5;
-    }
-    .stSidebar { background-color: #f9f9f9; }
-    .stExpanderHeader { font-weight: bold; }
+    }}
+    .stExpanderHeader {{ font-weight: bold; }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar ---
+# === Sidebar ===
 with st.sidebar:
     st.title("fo.ai")
     st.caption("Cloud Cost Intelligence")
-    st.caption(f"Version: `{__version__}`")
+    
 
-    # Health check
+
+    st.markdown("---")
+
+    # UI mode toggle
+    use_chat = st.toggle("💬 Chat Mode", value=False)
+
+    # Data mode toggle
+    use_live_data = st.toggle("📡 Live Data", value=not USE_MOCK_DATA)
+
+   
+    st.markdown("---")
+    st.markdown(" " * 20)
     try:
         status = requests.get(f"{API_URL}/status").json()
         st.success(f"🟢 {status['message']}")
     except Exception:
         st.error("🔴 API offline")
+    st.caption(f"Version: `{__version__}`")
 
-    st.markdown("---")
-    mode = st.radio("Choose Mode", ["Analyze", "Chat (Stream)"], index=0)
+# === Main Area ===
+st.title("Cloud Cost Intelligence")
 
-# --- Main Content ---
-st.title("Cloud Cost Optimization Assistant")
-st.info(f"**Mode:** {'Mock Data' if USE_MOCK_DATA else 'Live AWS'}")
+if not use_chat:
+    st.info(f"**Mode:** {'Live AWS Data' if use_live_data else 'Mock Data'}")
 
-query = st.text_input("Ask a question about your AWS costs:")
+    query = st.text_input("Ask a question about your AWS costs:")
 
-if mode == "Analyze":
-    if st.button("Run Analysis") and query:
+    if st.button("Analyze") and query:
         with st.spinner("Analyzing your cost data..."):
             try:
                 response = requests.post(f"{API_URL}/analyze", json={"query": query})
@@ -84,9 +99,26 @@ if mode == "Analyze":
             except Exception as e:
                 st.error(f"API call failed: {e}")
 
-elif mode == "Chat (Stream)":
-    if st.button("Stream Summary") and query:
-        with st.spinner("Streaming summary..."):
+# === Chat UI Mode ===
+else:
+    st.info("🔄 Chat mode streams live insights from the AI assistant.")
+
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+
+    for entry in st.session_state.chat_history:
+        with st.chat_message(entry["role"]):
+            st.markdown(entry["content"])
+
+    user_input = st.chat_input("Type a cost question...")
+
+    if user_input:
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
+
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            full_response = ""
+
             try:
                 with requests.post(
                     f"{API_URL}/analyze/stream",
@@ -94,11 +126,10 @@ elif mode == "Chat (Stream)":
                     stream=True,
                 ) as r:
                     r.raise_for_status()
-                    streamed = st.empty()
-                    summary = ""
                     for chunk in r.iter_content(chunk_size=256, decode_unicode=True):
-                        summary += chunk
-                        streamed.markdown(summary)
-                st.success("✅ Stream complete")
+                        full_response += chunk
+                        placeholder.markdown(full_response)
+
+                st.session_state.chat_history.append({"role": "assistant", "content": full_response})
             except Exception as e:
-                st.error(f"Streaming failed: {e}")
+                placeholder.error(f"Streaming failed: {e}")
