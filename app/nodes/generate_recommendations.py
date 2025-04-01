@@ -13,22 +13,25 @@ def generate_recommendations(instances: List[Dict], rules: Dict) -> List[Dict]:
         savings = instance.get("EstimatedSavings", 0.0)
         tags = instance.get("Tags", [])
 
-        # Debug per instance
         print(f"[CHECK] {instance_id} - CPU={cpu} Avg7d={avg_cpu} Uptime={uptime} Tags={tags} Cost={cost} Savings={savings}")
 
         if avg_cpu > rules.get("cpu_threshold", 10):
+            print(f"[SKIP] {instance_id} due to CPU threshold ({avg_cpu} > {rules.get('cpu_threshold', 10)})")
             continue
 
         if uptime < rules.get("min_uptime_hours", 24):
+            print(f"[SKIP] {instance_id} due to uptime threshold ({uptime} < {rules.get('min_uptime_hours', 24)})")
             continue
 
         if savings < rules.get("min_savings_usd", 5):
+            print(f"[SKIP] {instance_id} due to savings threshold ({savings} < {rules.get('min_savings_usd', 5)})")
             continue
 
         excluded = False
         for tag in tags:
             kv = f"{tag.get('Key')}={tag.get('Value')}"
             if kv in rules.get("excluded_tags", []):
+                print(f"[SKIP] {instance_id} due to excluded tag match: {kv}")
                 excluded = True
                 break
 
