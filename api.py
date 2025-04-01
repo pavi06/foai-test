@@ -7,21 +7,17 @@ from dotenv import load_dotenv
 import os
 import json
 
-# from data.aws.ec2 import fetch_ec2_data  # or however you collect it
 from data.aws.ec2 import fetch_ec2_instances
-
-from app.nodes.generate_recommendations import generate_recommendations
-from app.nodes.generate_recommendations import get_recommendations_and_prompt
+from app.nodes.generate_recommendations import generate_recommendations, get_recommendations_and_prompt
 from app.nodes.generate_response import stream_response
 
-from rules.aws.ec2_rules import EC2_RULES  # your default rules config # deprecated - use get_ec2_rules
-from rules.aws.ec2_rules import get_ec2_rules
 from memory.redis_memory import append_to_list, get_list
+from memory.preferences import get_user_preferences  # ✅ new import
 
 load_dotenv()
 USERNAME = os.getenv("USERNAME", "default")
 
-app = FastAPI(title="fo.ai API - Cloud Cost Intelligence", version="0.1.0")
+app = FastAPI(title="fo.ai API - Cloud Cost Intelligence", version="0.1.4-pre")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,6 +29,8 @@ app.add_middleware(
 
 class AnalyzeRequest(BaseModel):
     query: str
+    user_id: str = "demo"
+    region: str = "us-west-2"
 
 class Recommendation(BaseModel):
     InstanceId: str
@@ -51,8 +49,15 @@ def status_check():
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest):
-    ec2_data = fetch_ec2_instances()
-    rules = get_ec2_rules()
+    user_id = request.user_id or "demo"
+    rules = get_user_preferences(user_id)
+    print(f"\n\n ******** [fo.ai] Using rules for {user_id}: {rules} **********\n\n")
+
+    ec2_data = fetch_ec2_instances(region=request.region)
+
+    if not ec2_data:
+        return {"response": f"No EC2 instances found in region `{request.region}`.", "raw": []}
+
     recommendations = generate_recommendations(ec2_data, rules)
 
     if not recommendations:
@@ -91,18 +96,25 @@ def analyze(request: AnalyzeRequest):
 class AnalyzeStreamRequest(BaseModel):
     user_id: str
     instance_ids: List[str] = []
+    region: str = "us-west-2"
 
 @app.post("/analyze/stream")
 async def stream_analysis(req: AnalyzeStreamRequest):
-    ec2_data = fetch_ec2_instances(req.instance_ids)
-    result = get_recommendations_and_prompt(ec2_data, EC2_RULES)
+    rules = get_user_preferences(req.user_id)
+    ec2_data = fetch_ec2_instances(req.instance_ids, region=req.region)
+
+    if not ec2_data:
+        def empty_stream():
+            yield f"No EC2 instances found in region `{req.region}`. Nothing to analyze."
+        return StreamingResponse(empty_stream(), media_type="text/plain")
+
+    result = get_recommendations_and_prompt(ec2_data, rules)
     prompt = result["prompt"]
 
     def stream_gen():
         yield from stream_response(prompt)
 
     return StreamingResponse(stream_gen(), media_type="text/plain")
-
 
 @app.get("/memory", response_model=list)
 def get_memory():

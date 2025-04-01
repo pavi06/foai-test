@@ -63,3 +63,19 @@ def get_avg_cpu_over_days(instance_id: str, days: int = 7) -> float:
     except Exception as e:
         print(f"[ERROR] CloudWatch fetch failed for {instance_id}: {e}")
         return -1
+    
+def get_cpu_metrics(instance_id: str, region: str = None) -> dict:
+    """
+    Unified CPU metrics fetcher for recommendation engine.
+    Returns: avg over 7d, current hourly avg, and estimated savings.
+    """
+    avg_cpu = get_avg_cpu_over_days(instance_id)
+    current = fetch_cpu_utilization(instance_id)
+    savings = 10.0 if avg_cpu >= 0 and avg_cpu < 10 else 0.0
+
+    return {
+        "AverageCPU": avg_cpu,
+        "CurrentCPU": current,
+        "EstimatedSavings": savings,
+        "UptimeHours": 140  # Placeholder — could be fetched from instance later
+    }

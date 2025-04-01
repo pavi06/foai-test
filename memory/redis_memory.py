@@ -3,7 +3,9 @@
 import redis
 import os
 from dotenv import load_dotenv
+import json
 
+# Load environment variables from .env file
 load_dotenv()
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")

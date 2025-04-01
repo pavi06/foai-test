@@ -11,20 +11,24 @@ AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 ENABLE_TRUSTED_ADVISOR = os.getenv("ENABLE_TRUSTED_ADVISOR", "false").lower() == "true"
 
 
-def get_boto3_client(service: str):
+def get_boto3_client(service: str, region: str = None):
+    """
+    Returns a boto3 client for the given AWS service.
+    Supports override region (e.g., 'us-west-2').
+    """
     try:
-        # Create session with explicit credentials if provided
+        selected_region = region or AWS_REGION
+
         if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
             session = boto3.Session(
                 aws_access_key_id=AWS_ACCESS_KEY_ID,
                 aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-                region_name=AWS_REGION
+                region_name=selected_region
             )
         else:
-            # Fallback to environment/profile/default credential chain
-            session = boto3.Session(region_name=AWS_REGION)
+            session = boto3.Session(region_name=selected_region)
 
-        # Validate by calling STS
+        # Validate credentials
         sts = session.client("sts")
         identity = sts.get_caller_identity()
         if DEBUG:
@@ -34,3 +38,4 @@ def get_boto3_client(service: str):
 
     except Exception as e:
         raise RuntimeError(f"[AWS Error] Could not create {service} client: {e}")
+

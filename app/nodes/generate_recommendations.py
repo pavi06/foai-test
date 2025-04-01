@@ -1,80 +1,59 @@
+
 from typing import List, Dict
 
-
-def generate_recommendations(ec2_data: List[dict], rules: dict) -> List[dict]:
+def generate_recommendations(instances: List[Dict], rules: Dict) -> List[Dict]:
     recommendations = []
 
-    for instance in ec2_data:
+    for instance in instances:
         instance_id = instance.get("InstanceId")
-        instance_type = instance.get("InstanceType")
-        cpu = instance.get("CPU", 100)
-        avg_cpu = instance.get("CPU7dAvg", 100)
+        cpu = instance.get("CurrentCPU", 100)
+        avg_cpu = instance.get("AverageCPU", 100)
         uptime = instance.get("UptimeHours", 0)
-        cost = instance.get("MonthlyCost", 0)
+        cost = instance.get("EstimatedCost", 20.0)
+        savings = instance.get("EstimatedSavings", 0.0)
         tags = instance.get("Tags", [])
 
-        if uptime < rules["min_uptime_hours"]:
+        # Debug per instance
+        print(f"[CHECK] {instance_id} - CPU={cpu} Avg7d={avg_cpu} Uptime={uptime} Tags={tags} Cost={cost} Savings={savings}")
+
+        if avg_cpu > rules.get("cpu_threshold", 10):
             continue
 
-        if any(
-            f"{tag.get('Key', '').lower()}={tag.get('Value', '').lower()}"
-            in [ex.lower() for ex in rules.get("excluded_tags", [])]
-            for tag in tags
-        ):
+        if uptime < rules.get("min_uptime_hours", 24):
             continue
 
-        if avg_cpu <= rules["idle_7day_cpu_threshold"]:
-            estimated_savings = round(cost * 0.5, 2)
-            if estimated_savings >= rules["min_savings_usd"]:
-                recommendations.append({
-                    "InstanceId": instance_id,
-                    "InstanceType": instance_type,
-                    "Reason": f"7-day average CPU is low ({avg_cpu}%)",
-                    "EstimatedSavings": estimated_savings,
-                    "Tags": tags
-                })
+        if savings < rules.get("min_savings_usd", 5):
             continue
 
-        if cpu <= rules["cpu_threshold"]:
-            estimated_savings = round(cost * 0.4, 2)
-            if estimated_savings >= rules["min_savings_usd"]:
-                recommendations.append({
-                    "InstanceId": instance_id,
-                    "InstanceType": instance_type,
-                    "Reason": f"Low point-in-time CPU utilization ({cpu}%)",
-                    "EstimatedSavings": estimated_savings,
-                    "Tags": tags,
-                })
+        excluded = False
+        for tag in tags:
+            kv = f"{tag.get('Key')}={tag.get('Value')}"
+            if kv in rules.get("excluded_tags", []):
+                excluded = True
+                break
 
+        if excluded:
+            continue
+
+        instance["Reason"] = f"7-day average CPU is low ({avg_cpu}%)"
+        recommendations.append(instance)
+
+    print(f"[RESULT] Final recommendations: {len(recommendations)}")
     return recommendations
 
-
-def format_recommendations_as_prompt(recommendations: List[dict]) -> str:
-    """Convert recommendations into a prompt suitable for LLM summarization."""
+def get_recommendations_and_prompt(instances: List[Dict], rules: Dict) -> Dict:
+    recommendations = generate_recommendations(instances, rules)
     if not recommendations:
-        return "There are no cost-saving opportunities for the selected EC2 instances."
+        return {"recommendations": [], "prompt": "No cost-saving recommendations at the moment."}
 
-    lines = [
-        "Summarize the following EC2 cost optimization findings in plain English:\n"
-    ]
-
-    for rec in recommendations:
+    lines = []
+    for r in recommendations:
         line = (
-            f"- Instance {rec['InstanceId']} ({rec['InstanceType']}): "
-            f"{rec['Reason']}, estimated monthly savings of ${rec['EstimatedSavings']}"
+            f"Instance {r['InstanceId']} (type {r.get('InstanceType')}) in "
+            f"{r.get('AvailabilityZone', 'unknown zone')} has avg CPU {r.get('AverageCPU')}%, "
+            f"estimated savings: ${r.get('EstimatedSavings', 0.0):.2f}."
         )
         lines.append(line)
 
-    return "\n".join(lines)
-
-
-def get_recommendations_and_prompt(
-    ec2_data: List[dict], rules: dict
-) -> Dict[str, object]:
-    """Return both structured recommendations and a formatted LLM prompt."""
-    recs = generate_recommendations(ec2_data, rules)
-    prompt = format_recommendations_as_prompt(recs)
-    return {
-        "structured": recs,
-        "prompt": prompt,
-    }
+    prompt = "\n".join(lines)
+    return {"recommendations": recommendations, "prompt": prompt}
