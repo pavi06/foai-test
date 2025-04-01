@@ -3,10 +3,6 @@ from typing import List, Dict
 
 def generate_recommendations(instances: List[Dict], rules: Dict) -> List[Dict]:
     recommendations = []
-    skipped_cpu = 0
-    skipped_uptime = 0
-    skipped_savings = 0
-    skipped_tags = 0
 
     for instance in instances:
         instance_id = instance.get("InstanceId")
@@ -21,17 +17,14 @@ def generate_recommendations(instances: List[Dict], rules: Dict) -> List[Dict]:
 
         if avg_cpu > rules.get("cpu_threshold", 10):
             print(f"[SKIP] {instance_id} due to CPU threshold ({avg_cpu} > {rules.get('cpu_threshold', 10)})")
-            skipped_cpu += 1
             continue
 
         if uptime < rules.get("min_uptime_hours", 24):
             print(f"[SKIP] {instance_id} due to uptime threshold ({uptime} < {rules.get('min_uptime_hours', 24)})")
-            skipped_uptime += 1
             continue
 
         if savings < rules.get("min_savings_usd", 5):
             print(f"[SKIP] {instance_id} due to savings threshold ({savings} < {rules.get('min_savings_usd', 5)})")
-            skipped_savings += 1
             continue
 
         excluded = False
@@ -40,7 +33,6 @@ def generate_recommendations(instances: List[Dict], rules: Dict) -> List[Dict]:
             if kv in rules.get("excluded_tags", []):
                 print(f"[SKIP] {instance_id} due to excluded tag match: {kv}")
                 excluded = True
-                skipped_tags += 1
                 break
 
         if excluded:
@@ -50,7 +42,6 @@ def generate_recommendations(instances: List[Dict], rules: Dict) -> List[Dict]:
         recommendations.append(instance)
 
     print(f"[RESULT] Final recommendations: {len(recommendations)}")
-    print(f"[SUMMARY] Skipped by rules — CPU: {skipped_cpu}, Uptime: {skipped_uptime}, Savings: {skipped_savings}, Tags: {skipped_tags}")
     return recommendations
 
 def get_recommendations_and_prompt(instances: List[Dict], rules: Dict) -> Dict:
