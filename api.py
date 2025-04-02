@@ -1,23 +1,27 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Any, List
 from dotenv import load_dotenv
 import os
 import json
 
-from data.aws.ec2 import fetch_ec2_instances
+from data.aws.ec2 import fetch_ec2_instances, summarize_cost_by_region
 from app.nodes.generate_recommendations import generate_recommendations, get_recommendations_and_prompt
 from app.nodes.generate_response import stream_response
 
 from memory.redis_memory import append_to_list, get_list
 from memory.preferences import get_user_preferences  # ✅ new import
 
-load_dotenv()
-USERNAME = os.getenv("USERNAME", "default")
 
-app = FastAPI(title="fo.ai API - Cloud Cost Intelligence", version="0.1.4-pre")
+# routers for API endpoints
+from routes.aws.ec2 import router as aws_ec2_router
+
+load_dotenv()
+USERNAME = os.getenv("USERNAME", "default_user")
+
+app = FastAPI(title="fo.ai API - Cloud Cost Intelligence", version="0.1.4")
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,8 +33,8 @@ app.add_middleware(
 
 class AnalyzeRequest(BaseModel):
     query: str
-    user_id: str = "demo"
-    region: str = "us-west-2"
+    user_id: str = "default_user"
+    region: str = "us-east-1"
 
 class Recommendation(BaseModel):
     InstanceId: str
@@ -49,7 +53,7 @@ def status_check():
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest):
-    user_id = request.user_id or os.getenv("USERNAME", "default")
+    user_id = request.user_id or os.getenv("USERNAME", "default_user")
     rules = get_user_preferences(user_id)
     print(f"\n\n ******** [fo.ai] Using rules for {user_id}: {rules} **********\n\n")
 
@@ -129,3 +133,7 @@ def get_memory():
             memory.append({"error": "Failed to parse item", "data": item})
 
     return memory
+
+
+# Cloud service routers
+app.include_router(aws_ec2_router, prefix="/aws/ec2", tags=["AWS EC2"])

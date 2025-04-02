@@ -15,7 +15,7 @@ def fetch_ec2_instances(
     """
     ec2 = get_boto3_client("ec2", region=region)
     filters = [{"Name": "instance-state-name", "Values": ["running"]}]
-    
+
     if instance_ids:
         response = ec2.describe_instances(InstanceIds=instance_ids)
     else:
@@ -27,18 +27,34 @@ def fetch_ec2_instances(
             instance_id = instance["InstanceId"]
             metrics = get_cpu_metrics(instance_id, region=region)
 
+            instance_type = instance.get("InstanceType", "unknown")
+            
+            # 🔢 Simple mock pricing map (can expand later)
+            mock_price_map = {
+                "t2.micro": 0.0116,
+                "t3.micro": 0.0104,
+                "m5.large": 0.096,
+                "c5.large": 0.085,
+            }
+            estimated_cost = mock_price_map.get(instance_type, 0.05)
+
             instance_data = {
                 "InstanceId": instance_id,
-                "InstanceType": instance.get("InstanceType"),
+                "InstanceType": instance_type,
                 "AvailabilityZone": instance.get("Placement", {}).get("AvailabilityZone"),
                 "Tags": instance.get("Tags", []),
-                "Region": region,
-                **metrics
+                "AverageCPU": metrics.get("AverageCPU"),
+                "CurrentCPU": metrics.get("CurrentCPU"),
+                "EstimatedSavings": metrics.get("EstimatedSavings"),
+                "UptimeHours": metrics.get("UptimeHours"),
+                "region": region,  # ✅ Inject region for summarize_cost_by_region
+                "estimated_hourly_cost": estimated_cost  # ✅ Mock cost per instance type
             }
 
             instances.append(instance_data)
 
     return instances
+
 
 # data/aws/ec2.py
 
