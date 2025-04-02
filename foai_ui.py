@@ -47,7 +47,7 @@ html, body, .main {{
 with st.sidebar:
     st.title("fo.ai")
     use_chat = st.toggle("💬 Chat Mode", value=True)
-    use_live_data = st.toggle("📡 Live Data", value=not USE_MOCK_DATA)
+    use_live_data = st.toggle("📡 Live Data", value=not USE_MOCK_DATA) #Bug 
     # Preferences Section
     st.sidebar.markdown("## ⚙️ Preferences")
     cpu_threshold = st.sidebar.slider("CPU Threshold (%)", min_value=1, max_value=100, value=10)
