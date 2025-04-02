@@ -49,7 +49,7 @@ def status_check():
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest):
-    user_id = request.user_id or os.getenv("USERNAME", "default")
+    user_id = request.user_id or "demo"
     rules = get_user_preferences(user_id)
     print(f"\n\n ******** [fo.ai] Using rules for {user_id}: {rules} **********\n\n")
 
@@ -101,7 +101,11 @@ class AnalyzeStreamRequest(BaseModel):
 @app.post("/analyze/stream")
 async def stream_analysis(req: AnalyzeStreamRequest):
     rules = get_user_preferences(req.user_id)
+    if req.instance_ids:
     ec2_data = fetch_ec2_instances(req.instance_ids, region=req.region)
+else:
+    ec2_data = fetch_ec2_instances(region=req.region)
+print(f"[DEBUG] Streaming - Fetched {len(ec2_data)} instance(s) for user {req.user_id} in {req.region}")
 
     if not ec2_data:
         def empty_stream():

@@ -72,16 +72,7 @@ if not use_chat:
     if st.button("Analyze") and query:
         with st.spinner("Analyzing your cost data..."):
             try:
-                # response = requests.post(f"{API_URL}/analyze", json={"query": query})
-                response = requests.post(
-                    f"{API_URL}/analyze",
-                    json={
-                        "query": query,
-                        "user_id": os.getenv("USERNAME", "default_user"),
-                        "region": os.getenv("AWS_REGION", "us-east-1")
-                }
-                )
-
+                response = requests.post(f"{API_URL}/analyze", json={"query": query})
                 response.raise_for_status()
                 result = response.json()
 
@@ -128,14 +119,9 @@ else:
             try:
                 with requests.post(
                     f"{API_URL}/analyze/stream",
-                    json={
-                        "user_id": os.getenv("USERNAME", "default_user"),
-                        "region": os.getenv("AWS_REGION", "us-east-1"),
-                        "query": user_input
-                    },
+                    json={"user_id": "demo", "instance_ids": []},
                     stream=True,
                 ) as r:
-
                     r.raise_for_status()
                     for i, chunk in enumerate(r.iter_content(chunk_size=1, decode_unicode=True)):
                         if chunk:

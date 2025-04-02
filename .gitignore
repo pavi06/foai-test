@@ -43,3 +43,4 @@ data/*.json
 mock_*
 logs/*
 *.*.pid
+.foai/*.pid

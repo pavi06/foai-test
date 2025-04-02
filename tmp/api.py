@@ -49,7 +49,7 @@ def status_check():
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest):
-    user_id = request.user_id or os.getenv("USERNAME", "default")
+    user_id = request.user_id or "demo"
     rules = get_user_preferences(user_id)
     print(f"\n\n ******** [fo.ai] Using rules for {user_id}: {rules} **********\n\n")
 

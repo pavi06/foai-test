@@ -88,11 +88,17 @@ def check_status():
         print(f"[fo.ai] API not reachable: {e}")
 
 def run_query(query, stream=False):
+    payload = {
+        "query": query,
+        "user_id": os.getenv("USERNAME", "cli"),
+        "region": os.getenv("AWS_REGION", "us-east-1")
+    }
+
     if stream:
         try:
             with requests.post(
                 f"{BASE_URL}/analyze/stream",
-                json={"user_id": "cli", "instance_ids": []},
+                json=payload,
                 stream=True,
             ) as r:
                 r.raise_for_status()
@@ -104,11 +110,12 @@ def run_query(query, stream=False):
             print(f"[fo.ai] Stream error: {e}")
     else:
         try:
-            r = requests.post(f"{BASE_URL}/analyze", json={"query": query})
+            r = requests.post(f"{BASE_URL}/analyze", json=payload)
             r.raise_for_status()
             print(r.json()["response"])
         except Exception as e:
             print(f"[fo.ai] API error: {e}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
