@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
+from memory.preferences import set_user_preferences
 from pydantic import BaseModel
 from typing import Any, List
 from dotenv import load_dotenv
@@ -13,6 +14,12 @@ from app.nodes.generate_response import stream_response
 
 from memory.redis_memory import append_to_list, get_list
 from memory.preferences import get_user_preferences  # ✅ new import
+
+class PreferencePayload(BaseModel):
+    user_id: str
+    preferences: dict
+
+
 
 
 # routers for API endpoints
@@ -135,5 +142,22 @@ def get_memory():
     return memory
 
 
+@app.get("/preferences/load")
+def load_preferences(user_id: str):
+    try:
+        prefs = get_user_preferences(user_id)
+        return {"user_id": user_id, "preferences": prefs}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/preferences/save")
+def save_preferences(payload: PreferencePayload):
+    try:
+        set_user_preferences(payload.user_id, payload.preferences)
+        return {"message": "Preferences saved", "user_id": payload.user_id}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 # Cloud service routers
 app.include_router(aws_ec2_router, prefix="/aws/ec2", tags=["AWS EC2"])
+

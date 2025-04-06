@@ -19,3 +19,13 @@ def get_user_preferences(user_id: str) -> dict:
         print(f"[fo.ai] Preference error for {user_id}: {e}")
 
     return default_rules.copy()
+
+def set_user_preferences(user_id: str, preferences: dict) -> None:
+    """
+    Save user preferences to Redis in the expected format:
+    Key:   user:{user_id}:prefs
+    Value: JSON string like {"cpu_threshold": 10, "min_uptime_hours": 0, "min_savings_usd": 0}
+    """
+    key = f"user:{user_id}:prefs"
+    value = json.dumps(preferences)
+    r.set(key, value)
