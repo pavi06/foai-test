@@ -19,7 +19,13 @@ class PreferencePayload(BaseModel):
     user_id: str
     preferences: dict
 
-
+DEFAULT_PREFS = {
+    "cpu_threshold": 10,
+    "min_uptime_hours": 0,
+    "min_savings_usd": 0,
+    "excluded_tags": ["env=prod", "do-not-touch"],
+    "idle_7day_cpu_threshold": 5
+}
 
 
 # routers for API endpoints
@@ -158,6 +164,17 @@ def save_preferences(payload: PreferencePayload):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.post("/preferences/reset")
+def reset_preferences(payload: dict, user_id: str = "user_id"):
+    # user_id = payload.get("user_id")
+    user_id = payload.get("user_id", user_id)
+    if not user_id:
+        return JSONResponse(status_code=400, content={"error": "Missing user_id"})
+    try:
+        set_user_preferences(user_id, DEFAULT_PREFS)
+        return {"message": "Preferences reset to default", "user_id": user_id}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 # Cloud service routers
 app.include_router(aws_ec2_router, prefix="/aws/ec2", tags=["AWS EC2"])
-
