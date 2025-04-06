@@ -43,10 +43,10 @@ def save_preferences():
 # Sidebar preferences UI
 with st.sidebar:
     st.title("fo.ai")
-    st.markdown("## ⚙️ Preferences")
+    st.markdown("### ⚙️ Preferences")
 
     with st.form("preferences_form"):
-        with st.expander("User Preferences", expanded=True):
+        with st.expander("User Preferences", expanded=False):
             st.session_state.preferences["cpu_threshold"] = st.slider(
                 "CPU Threshold (%)", 1, 100, st.session_state.preferences.get("cpu_threshold", 10)
             )
@@ -68,16 +68,23 @@ with st.sidebar:
                 "Idle 7-day CPU (%)", 1, 100, st.session_state.preferences.get("idle_7day_cpu_threshold", 5)
             )
 
-        submitted = st.form_submit_button("Apply Changes")
+        submitted = st.form_submit_button("Save Preferences")
         if submitted:
             save_preferences()
+    # Chat toggle
+    use_chat = st.sidebar.toggle("💬 Chat Mode", value=True)
+    st.markdown("---")
+    try:
+        status = requests.get(f"{API_URL}/status").json()
+        st.success(f"🟢 {status['message']}")
+    except Exception:
+        st.error("🔴 API offline")
+    st.caption(f"Version: `{__version__}`")
 
-# Chat toggle
-use_chat = st.sidebar.toggle("💬 Chat Mode", value=True)
 
 # === Analyze Section ===
 if not use_chat:
-    st.markdown("## 🔍 Analyze Your Cloud Spend")
+    st.markdown("### Analyze Your Cloud Spend")
     query = st.text_input("Ask a cost-related question")
 
     if st.button("Analyze"):
@@ -111,7 +118,7 @@ if not use_chat:
             except Exception as e:
                 st.error(f"API call failed: {e}")
 else:
-    st.markdown("## 💬 Chat Mode")
+    st.markdown("### Chat Mode")
 
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
