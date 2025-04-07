@@ -8,6 +8,7 @@ import sys
 import json
 from pathlib import Path
 from dotenv import load_dotenv
+from cli_chat import start_chat
 
 # Load environment variables
 load_dotenv()
@@ -121,11 +122,20 @@ Examples:
   python foai_cli.py prefs set --user vedanta --cpu-threshold 5 --uptime 100
   python foai_cli.py server start all
   python foai_cli.py logs api
+  
+Alias:
+    Set alias for this script in your shell:
+    # alias foai='python /path/to/foai_cli.py'
 """,
     formatter_class=argparse.RawDescriptionHelpFormatter
 )
 parser.add_argument("--version", action="version", version=f"fo.ai CLI v{VERSION}")
 subparsers = parser.add_subparsers(dest="command")
+
+
+# chat
+subparsers.add_parser("chat", help="Start interactive streaming chat session")
+
 
 # Server management
 server_cmd = subparsers.add_parser("server", help="Start/stop/kill servers")
@@ -178,6 +188,10 @@ elif args.command == "status":
 
 elif args.command == "ask":
     run_query(args.query, stream=args.stream)
+    
+# Add this in your CLI main section
+elif args.command == "chat":
+    start_chat()
 
 elif args.command == "prefs":
     if args.prefs_command == "view":
