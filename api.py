@@ -7,6 +7,12 @@ from typing import Any, List
 from dotenv import load_dotenv
 import os
 import json
+from langchain_ollama import ChatOllama
+from fastapi import Request
+
+# API prompts
+from prompts.pref_explainer import build_explain_prompt
+
 
 from data.aws.ec2 import fetch_ec2_instances, summarize_cost_by_region
 from app.nodes.generate_recommendations import generate_recommendations, get_recommendations_and_prompt
@@ -33,6 +39,10 @@ from routes.aws.ec2 import router as aws_ec2_router
 
 load_dotenv()
 USERNAME = os.getenv("USERNAME", "default_user")
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3")
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.5"))
+llm = ChatOllama(model=LLM_MODEL, temprature=LLM_TEMPERATURE)
 
 app = FastAPI(title="fo.ai API - Cloud Cost Intelligence", version="0.1.4")
 
@@ -133,7 +143,7 @@ async def stream_analysis(req: AnalyzeStreamRequest):
 
     return StreamingResponse(stream_gen(), media_type="text/plain")
 
-@app.get("/memory", response_model=list)
+@app.get("/memory", response_model=list,tags=["Memory"])
 def get_memory():
     key = f"foai:chat:{USERNAME}"
     raw_entries = get_list(key, limit=20)
@@ -148,7 +158,38 @@ def get_memory():
     return memory
 
 
-@app.get("/preferences/load")
+# User preferences endpoints
+
+from fastapi import Request  # Add this import if not already present
+
+@app.get("/preferences/explain", tags=["Preferences"])
+async def explain_preferences(request: Request, user_id: str = USERNAME):
+    """
+    Generate a natural language explanation of the user's preferences using the LLM.
+    """
+    try:
+        # Get user preferences from Redis
+        prefs = get_user_preferences(user_id)
+
+        # Retrieve 'persona' from query parameters, default to 'engineer' if not provided
+        persona = request.query_params.get("persona", "engineer")
+
+        # Build the prompt for LLM based on preferences and persona
+        prompt = build_explain_prompt(prefs, persona=persona)
+
+        # Invoke LLM for the explanation
+        explanation = llm.invoke(prompt)
+
+        return {
+            "user_id": user_id,
+            "preferences": prefs,
+            "explanation": explanation,
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/preferences/load", tags=["Preferences"])
 def load_preferences(user_id: str):
     try:
         prefs = get_user_preferences(user_id)
@@ -156,7 +197,7 @@ def load_preferences(user_id: str):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.post("/preferences/save")
+@app.post("/preferences/save", tags=["Preferences"])
 def save_preferences(payload: PreferencePayload):
     try:
         set_user_preferences(payload.user_id, payload.preferences)
@@ -164,7 +205,7 @@ def save_preferences(payload: PreferencePayload):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.post("/preferences/reset")
+@app.post("/preferences/reset", tags=["Preferences"])
 def reset_preferences(payload: dict, user_id: str = "user_id"):
     # user_id = payload.get("user_id")
     user_id = payload.get("user_id", user_id)

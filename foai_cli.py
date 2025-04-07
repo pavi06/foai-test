@@ -1,4 +1,3 @@
-
 import argparse
 import os
 import signal
@@ -8,11 +7,11 @@ import sys
 import json
 from pathlib import Path
 from dotenv import load_dotenv
-from cli_chat import start_chat
-
+# these are cli specific imports
+from cli.cli_chat import start_chat
+from cli.cli_prompts import explain_prefs
 # Load environment variables
 load_dotenv()
-
 # Constants
 BASE_URL = os.getenv("FOAI_API_URL", "http://localhost:8000")
 PID_DIR = Path(".foai")
@@ -21,8 +20,7 @@ API_PID_FILE = PID_DIR / "api.pid"
 UI_PID_FILE = PID_DIR / "ui.pid"
 API_LOG = LOG_DIR / "api.log"
 UI_LOG = LOG_DIR / "ui.log"
-VERSION = "0.1.4"
-
+VERSION = "0.1.6"
 # Server Control
 def start_server(target):
     PID_DIR.mkdir(exist_ok=True)
@@ -129,6 +127,7 @@ Alias:
 """,
     formatter_class=argparse.RawDescriptionHelpFormatter
 )
+
 parser.add_argument("--version", action="version", version=f"fo.ai CLI v{VERSION}")
 subparsers = parser.add_subparsers(dest="command")
 
@@ -169,6 +168,11 @@ prefs_set.add_argument("--min-savings", type=float)
 prefs_set.add_argument("--exclude-tags", nargs="*")
 prefs_set.add_argument("--idle-cpu", type=float)
 
+# Explain Preferences
+explain_cmd = subparsers.add_parser("explain-prefs", help="Use LLM to explain current user preferences")
+explain_cmd.add_argument("--user", default="default_user", help="User ID (default: 'default_user')")
+explain_cmd.add_argument("--persona", default="engineer", help="Persona style (e.g., engineer, finance, executive)")
+
 # === Execution ===
 args = parser.parse_args()
 
@@ -201,7 +205,6 @@ elif args.command == "prefs":
             print(json.dumps(r.json(), indent=2))
         except Exception as e:
             print(f"[fo.ai] Error loading preferences: {e}")
-
     elif args.prefs_command == "set":
         prefs = {}
         if args.cpu_threshold is not None:
@@ -214,17 +217,17 @@ elif args.command == "prefs":
             prefs["excluded_tags"] = args.exclude_tags
         if args.idle_cpu is not None:
             prefs["idle_7day_cpu_threshold"] = args.idle_cpu
-
         payload = {
             "user_id": args.user,
             "preferences": prefs
         }
-
         try:
             r = requests.post(f"{BASE_URL}/preferences/save", json=payload)
             r.raise_for_status()
             print("[fo.ai] Preferences saved successfully.")
         except Exception as e:
             print(f"[fo.ai] Error saving preferences: {e}")
+elif args.command == "explain-prefs":
+    explain_prefs(user_id=args.user, persona=args.persona)
 else:
     parser.print_help()
