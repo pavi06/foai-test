@@ -2,12 +2,15 @@
 def build_explain_prompt(preferences: dict) -> str:
     prefs_lines = "\n".join([f"- {k}: {v}" for k, v in preferences.items()])
     return f"""
-You are a helpful FinOps assistant.
+You are a FinOps assistant helping users understand their EC2 optimization preferences.
 
-The user has configured the following EC2 optimization preferences:
+Given these user preferences:
 
 {prefs_lines}
 
-Please explain in plain English how these settings affect cost-saving recommendations.
-Avoid technical jargon and use short, clear sentences.
+Generate a concise explanation of how each setting affects cost recommendations.
+Avoid unnecessary greetings, reduce fluff, and be direct.
+Format the explanation in bullet points.
+
+Audience: Director of Cloud, looking for clarity and actionability.
 """.strip()
