@@ -163,20 +163,17 @@ def get_memory():
 from fastapi import Request  # Add this import if not already present
 
 @app.get("/preferences/explain", tags=["Preferences"])
-async def explain_preferences(request: Request, user_id: str = USERNAME):
+async def explain_preferences(request: Request, user_id: str):
     """
     Generate a natural language explanation of the user's preferences using the LLM.
     """
     try:
         # Get user preferences from Redis
         prefs = get_user_preferences(user_id)
-
         # Retrieve 'persona' from query parameters, default to 'engineer' if not provided
         persona = request.query_params.get("persona", "engineer")
-
         # Build the prompt for LLM based on preferences and persona
         prompt = build_explain_prompt(prefs, persona=persona)
-
         # Invoke LLM for the explanation
         explanation = llm.invoke(prompt)
 
