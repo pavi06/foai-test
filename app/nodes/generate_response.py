@@ -47,7 +47,10 @@ def generate_response(state: CostState) -> CostState:
 
 def stream_response(prompt: str) -> Generator[str, None, None]:
     """Yields streamed LLM response token by token."""
+
+    print(f"\n[STREAM] Generating response for prompt: {prompt}")
     message = HumanMessage(content=prompt)
+    print(f"[STREAM] Sending message to LLM: {message}")
     for chunk in llm.stream([message]):
         if chunk.content:
             yield chunk.content

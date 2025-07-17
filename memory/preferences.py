@@ -14,6 +14,9 @@ def get_user_preferences(user_id: str) -> dict:
         raw = r.get(key)
         if raw:
             overrides = json.loads(raw)
+            print("\nPreferences loaded:", overrides)
+            print("\nDefault rules:", default_rules)
+            print("\nMerged rules:", {**default_rules, **overrides})
             return {**default_rules, **overrides}
     except Exception as e:
         print(f"[fo.ai] Preference error for {user_id}: {e}")

@@ -21,27 +21,27 @@ USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
 st.set_page_config(page_title="fo.ai – Cloud Cost Intelligence", layout="wide")
 
 # === Inject Custom CSS ===
-st.markdown(f"""
-<style>
-html, body, .main {{
-    background-color: {PANEL_BG};
-    color: {TEXT_COLOR};
-}}
-.block-container {{ padding-top: 2rem; }}
-.stSidebar {{ background-color: {SIDEBAR_BG}; }}
-.stButton>button {{
-    background-color: #f0f0f0;
-    color: #111;
-    border: 1px solid #ddd;
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-}}
-.stButton>button:hover {{
-    background-color: #e5e5e5;
-}}
-.stExpanderHeader {{ font-weight: bold; }}
-</style>
-""", unsafe_allow_html=True)
+# st.markdown(f"""
+# <style>
+# html, body, .main {{
+#     background-color: {PANEL_BG};
+#     color: {TEXT_COLOR};
+# }}
+# .block-container {{ padding-top: 2rem; }}
+# .stSidebar {{ background-color: {SIDEBAR_BG}; }}
+# .stButton>button {{
+#     background-color: #f0f0f0;
+#     color: #111;
+#     border: 1px solid #ddd;
+#     padding: 0.5rem 1rem;
+#     border-radius: 8px;
+# }}
+# .stButton>button:hover {{
+#     background-color: #e5e5e5;
+# }}
+# .stExpanderHeader {{ font-weight: bold; }}
+# </style>
+# """, unsafe_allow_html=True)
 
 # === Sidebar ===
 with st.sidebar:

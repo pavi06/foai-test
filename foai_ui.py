@@ -12,7 +12,255 @@ USER_ID = os.getenv("USERNAME", "default_user")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
 st.set_page_config(page_title="fo.ai – Cloud Cost Intelligence", layout="wide")
-st.title("fo.ai – Cloud Cost Intelligence")
+
+#css
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap');
+
+    .gradient-title {
+        font-family: 'Poppins', sans-serif;
+        font-size: 2rem;
+        font-weight: 500;
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .typewriter {
+        overflow: hidden;
+        border-right: 4px solid #667eea;
+        padding-right: 0.3rem;
+        padding-bottom: 0rem;
+        white-space: nowrap;
+        margin: 0 auto;
+        animation: typing 3s steps(40, end), blink-caret 0.75s step-end infinite;
+        max-width: fit-content;
+    }
+
+    @keyframes typing {
+        from { width: 0 }
+        to { width: 100% }
+    }
+
+    @keyframes blink-caret {
+        from, to { border-color: transparent }
+        50% { border-color: #667eea }
+    }
+
+    .subtitle {
+        text-align: center;
+        font-family: 'Poppins', sans-serif;
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+            
+    .subtitle1 {
+        text-align: center;
+        font-family: 'Poppins', sans-serif;
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+                
+    .chat-message {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .user-message {
+        border-left: 2px solid #2196f3;
+        box-shadow: 0 2px 4px 0 #2196f3;
+    }
+    .assistant-message {
+        border-left: 2px solid #9c27b0;
+        box-shadow: 0 2px 4px 0 #9c27b0;
+    }
+    .sidebar .element-container {
+        margin-bottom: 1rem;
+        background: white;
+    }
+                
+     /* Remove default Streamlit slider styling */
+    .stSlider > div > div > div > div {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
+        height: 10px !important;
+        border-radius: 3px !important;
+    }
+    
+    /* Slider track (background) */
+    .stSlider > div > div > div {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
+        border-radius: 3px !important;
+    }
+    
+    /* Slider thumb hover effect */
+    .stSlider > div > div > div > div > div:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5) !important;
+        transform: scale(1.1) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    /* Remove red color on focus/active */
+    .stSlider > div > div > div > div:focus,
+    .stSlider > div > div > div > div:active {
+        outline: none !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3) !important;
+    }
+    
+    /* Slider labels */
+    .stSlider > label {
+        color:  white  !important;
+        font-weight: 500 !important;
+    }
+                
+    .centertext{
+        text-align: center;
+        padding: 0.5rem;
+        text-transform: uppercase;
+        font-weight: 600;
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-family: 'Poppins', sans-serif;
+    }
+                
+    .glassmorphic-container {
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+        border-radius: 1rem !important;
+        padding: 1.5rem !important;
+        margin: 1rem 0 !important;
+        box-shadow: 0 8px 32px 0 rgba(102, 126, 234, 0.2) !important;
+    }
+                
+    .streamlit-expanderHeader {
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+        border-radius: 1rem !important;
+        box-shadow: 0 8px 32px 0 rgba(102, 126, 234, 0.2) !important;
+    }
+    
+    .streamlit-expanderContent {
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(102, 126, 234, 0.2) !important;
+        border-radius: 1rem !important;
+        padding: 1.5rem !important;
+        box-shadow: 0 8px 32px 0 rgba(102, 126, 234, 0.2) !important;
+    }
+                
+    [data-testid="stChatInputSubmitButton"] {
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+    }
+                
+    .stExpander {
+        border: 1px solid #667eea !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 1px 2px rgba(102, 126, 234, 0.2) !important;  
+    }
+    
+    summary:hover{
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+                
+    summary div p{
+        font-weight: 600;
+        font-size: 1.2rem;
+        font-family: 'Poppins', sans-serif;
+        text-align: center;
+    }
+                
+    summary:hover svg{
+        fill: #6136cd !important; 
+    }
+    
+    [data-testid="stSliderThumbValue"] {
+        color: white !important;
+    }
+            
+    button[data-testid="stBaseButton-headerNoPadding"] > span > span{
+        fill: #6136cd !important; 
+    }
+            
+    .st-emotion-cache-ujm5ma{
+        fill: #6136cd !important;  
+    }
+                
+    button[data-testid="stBaseButton-secondaryFormSubmit"]{
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%) !important;
+        opacity: 0.8 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 0.5rem !important;
+        font-weight: 600 !important;
+        font-family: 'Poppins', sans-serif !important;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .stForm{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {
+        background: none !important;
+        color: white !important;
+        border: 1px solid #6136cd !important;
+        border-radius: 0.5rem !important;
+        font-weight: 600 !important;
+        font-family: 'Poppins', sans-serif !important;
+    }
+                
+    [data-testid="stTextInputRootElement"]:focus{
+        background: white !important;
+        border: 1px solid pink !important;
+    }
+            
+    label > div.toggle{
+        background: #6136cd !important;    
+    }
+                
+    </style>
+    """, unsafe_allow_html=True)
+
+st.markdown("""
+<div class="container">
+    <h1 class="gradient-title typewriter ">fo.ai – Cloud Cost Intelligence</h1>
+</div>
+""", unsafe_allow_html=True)
+
+# st.title("fo.ai – Cloud Cost Intelligence")
 
 # Load preferences from Redis (once)
 @st.cache_data(show_spinner=False)
@@ -42,8 +290,10 @@ def save_preferences():
 
 # Sidebar preferences UI
 with st.sidebar:
-    st.title("fo.ai")
-    st.markdown("### ⚙️ Preferences")
+    # st.title("fo.ai")
+    st.markdown(""" <div class="subtitle1 ">🤖 fo.ai</div> """, unsafe_allow_html=True)
+    # st.markdown("### ⚙️ Preferences")
+    st.markdown(""" <div class="subtitle ">Preferences</div> """, unsafe_allow_html=True)
 
     with st.form("preferences_form"):
         with st.expander("User Preferences", expanded=False):
@@ -130,6 +380,8 @@ else:
     user_input = st.chat_input("Ask a cloud savings question...")
     if user_input:
         st.session_state.chat_history.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
 
         with st.chat_message("assistant"):
             placeholder = st.empty()

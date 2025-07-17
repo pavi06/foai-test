@@ -44,6 +44,10 @@ LLM_MODEL = os.getenv("LLM_MODEL", "llama3")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.5"))
 llm = ChatOllama(model=LLM_MODEL, temprature=LLM_TEMPERATURE)
 
+print("Testing the llama3 Model...")
+response = llm.invoke("Tell me a joke about programmers")
+print(response.content)
+
 app = FastAPI(title="fo.ai API - Cloud Cost Intelligence", version="0.1.4")
 
 app.add_middleware(
@@ -123,12 +127,15 @@ def analyze(request: AnalyzeRequest):
 class AnalyzeStreamRequest(BaseModel):
     user_id: str
     instance_ids: List[str] = []
-    region: str = "us-west-2"
+    region: str = "us-east-1"
 
 @app.post("/analyze/stream")
 async def stream_analysis(req: AnalyzeStreamRequest):
+    print("\n-----------------------------------------\nRequest received:", req)
     rules = get_user_preferences(req.user_id)
+    print("Rules : ", rules)
     ec2_data = fetch_ec2_instances(req.instance_ids, region=req.region)
+    print("\nEC2 Data : ", ec2_data)
 
     if not ec2_data:
         def empty_stream():
@@ -174,8 +181,10 @@ async def explain_preferences(request: Request, user_id: str):
         persona = request.query_params.get("persona", "engineer")
         # Build the prompt for LLM based on preferences and persona
         prompt = build_explain_prompt(prefs, persona=persona)
+        print("Prompt for LLM:", prompt)
         # Invoke LLM for the explanation
         explanation = llm.invoke(prompt)
+        print("LLM Explanation:", explanation)
 
         return {
             "user_id": user_id,

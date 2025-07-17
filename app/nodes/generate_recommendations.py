@@ -68,4 +68,7 @@ def get_recommendations_and_prompt(instances: List[Dict], rules: Dict) -> Dict:
         lines.append(line)
 
     prompt = "\n".join(lines)
+    print("--------------------------------------------")
+    print(f"[PROMPT] Generated prompt: {prompt}")
+    print(f"Recommendations:", recommendations)
     return {"recommendations": recommendations, "prompt": prompt}
