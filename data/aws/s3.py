@@ -5,10 +5,9 @@ from data.aws.cloudwatch import get_cpu_metrics
 import json
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from botocore.exceptions import ClientError
 
 TARGET_REGION = "us-east-1"             
-TARGET_BUCKET_NAMES = ["my-bucket-1"] 
+TARGET_BUCKET_NAMES = [] 
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -123,7 +122,6 @@ def fetch_s3_data(
         try:
             details = fetch_s3_bucket_details(bucket_name, region=region)
             if details:
-                # Inject BucketName for clarity in list form
                 details["BucketName"] = bucket_name
                 results.append(details)
         except Exception as e:
