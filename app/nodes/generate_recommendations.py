@@ -1,5 +1,6 @@
 
 from typing import List, Dict
+from datetime import datetime, timedelta
 
 def generate_recommendations(instances: List[Dict], rules: Dict) -> List[Dict]:
     recommendations = []
@@ -72,3 +73,86 @@ def get_recommendations_and_prompt(instances: List[Dict], rules: Dict) -> Dict:
     print(f"[PROMPT] Generated prompt: {prompt}")
     print(f"Recommendations:", recommendations)
     return {"recommendations": recommendations, "prompt": prompt}
+
+
+
+
+#s3 recommendations
+def parse_custom_datetime(dt_str: str) -> datetime:
+    """Parses custom datetime format: 'August 4, 2025, 15:22:37 (UTC+05:30)'"""
+    try:
+        return datetime.strptime(dt_str.split(' (')[0], "%B %d, %Y, %H:%M:%S")
+    except Exception:
+        return datetime.min
+    
+
+#give recommendation for adding lifecycle policies to S3 buckets
+def generate_s3_recommendations(
+    buckets_data: List[Dict],
+    rules: Dict
+) -> List[Dict]:
+    """
+    Enriches each bucket dict with recommendation and reason if:
+    - Lifecycle policy is missing
+    - Last modified exceeds a threshold from rules
+    - Tags do not match exclusion list
+    """
+    excluded_tags = set(rules.get("excluded_tags", []))
+    transition_rules = sorted(rules.get("transitions", []), key=lambda r: r["days"], reverse=True)
+    now = datetime.now()
+
+    for bucket in buckets_data:
+        if "error" in bucket:
+            continue 
+
+        bucket_name = bucket.get("BucketName")
+        lifecycle_rules = bucket.get("LifecyclePolicies", [])
+        last_modified_group = bucket.get("ObjectStatistics", {}).get("LastModifiedByGroup", {})
+        tags = bucket.get("BasicInfo", {}).get("Tags", [])
+
+        if tags:
+            for tag in tags:
+                kv = f"{tag.get('Key')}={tag.get('Value')}"
+                if kv in excluded_tags:
+                    print(f"[SKIP] {bucket_name} due to excluded tag {kv}")
+                    break
+            else:
+                pass 
+        else:
+            tags = []
+
+        if lifecycle_rules:
+            print(f"[SKIP] {bucket_name} already has lifecycle policy.")
+            continue
+
+        max_modified_date = datetime.min
+        for _, modified_str in last_modified_group.items():
+            modified_dt = parse_custom_datetime(modified_str)
+            if modified_dt > max_modified_date:
+                max_modified_date = modified_dt
+
+        if max_modified_date == datetime.min:
+            print(f"[SKIP] {bucket_name} has no valid last modified timestamps.")
+            continue
+
+        days_since_modified = (now - max_modified_date).days
+
+        # Match transition rule
+        matched_rule = next(
+            (rule for rule in transition_rules if days_since_modified >= rule["days"]),
+            None
+        )
+
+        if matched_rule:
+            bucket["Recommendation"] = {
+                "Reason": (
+                    f"No lifecycle policy and objects not modified in {days_since_modified} days"
+                ),
+                "Action": (
+                    f"Add a lifecycle rule to transition objects older than {matched_rule['days']} days "
+                    f"to {matched_rule['tier']} storage class."
+                ),
+                "DaysSinceLastModified": days_since_modified
+            }
+
+    return [bucket for bucket in buckets_data if "Recommendation" in bucket]

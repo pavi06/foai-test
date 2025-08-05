@@ -16,6 +16,7 @@ prompt = PromptTemplate.from_template("""
 You are a cloud FinOps assistant. Classify the user's query into one of the following types:
 - general
 - ec2
+- s3
 - region
 - service
 
@@ -32,6 +33,8 @@ def analyze_query(state: CostState) -> CostState:
     output = result.content.strip().lower()
     if "ec2" in output:
         state["query_type"] = "ec2"
+    elif "s3" in output:
+        state["query_type"] = "s3"
     elif "service" in output:
         state["query_type"] = "service"
     elif "region" in output:

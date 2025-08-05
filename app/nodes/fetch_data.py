@@ -28,6 +28,9 @@ def fetch_data(state: CostState) -> CostState:
         if query_type == "ec2":
             from data.aws.ec2 import fetch_ec2_instances
             state["ec2_data"] = fetch_ec2_instances()
+        elif query_type == "s3":
+            from data.aws.s3 import fetch_s3_data
+            state["s3_data"] = fetch_s3_data()
         else:
             state["response"] = f"No AWS integration implemented for query_type: {query_type}"
     return state

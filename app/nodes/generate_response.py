@@ -18,7 +18,8 @@ llm = ChatOllama(model=LLM_MODEL, temprature=LLM_TEMPERATURE)
 
 prompt = PromptTemplate.from_template("""
 You are a FinOps assistant. Summarize the following cost optimization recommendations in plain language.
-Be concise but helpful. Mention instance IDs, services, or cost values as needed.
+Be concise but helpful. Mention instance IDs, services, or cost values as needed for ec2 instances. 
+And for s3 buckets, mention bucket details and provide recommended lifecycle policies. 
 
 Recommendations:
 {recommendations}
