@@ -135,7 +135,6 @@ async def stream_analysis(req: AnalyzeStreamRequest):
     rules = get_user_preferences(req.user_id)
     print("Rules : ", rules)
     ec2_data = fetch_ec2_instances(req.instance_ids, region=req.region)
-    print("\nEC2 Data : ", ec2_data)
 
     if not ec2_data:
         def empty_stream():

@@ -48,6 +48,7 @@ def generate_recommendations(instances: List[Dict], rules: Dict) -> List[Dict]:
             continue
 
         instance["Reason"] = f"7-day average CPU is low ({avg_cpu}%)"
+        print("Instance Details : ",instance)
         recommendations.append(instance)
 
     print(f"[RESULT] Final recommendations: {len(recommendations)}")

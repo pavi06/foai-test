@@ -4,23 +4,32 @@ from langchain_core.prompts import PromptTemplate
 
 # Define persona guidance dictionary
 persona_instructions = {
-    "engineer": "Use technical but concise language focused on thresholds and optimization triggers.",
-    "product_owner": "Explain tradeoffs and how preferences influence cost vs performance.",
-    "finance": "Highlight the budget impact and savings logic behind each setting.",
-    "executive": "Summarize strategic intent behind these settings in business terms."
+    "engineer": "Use concise technical language. Focus on thresholds, metrics, and optimization logic.",
+    "product_owner": "Highlight tradeoffs and how user preferences affect performance vs. cost.",
+    "finance": "Emphasize budget impact, cost drivers, and potential savings for each setting.",
+    "executive": "Summarize high-level strategic benefits and business outcomes of the optimizations."
 }
+
+
 
 # LangChain-style prompt template
 explain_template = PromptTemplate.from_template("""
-You are a FinOps assistant. The user has configured the following EC2 optimization preferences:
+You are a FinOps assistant.
 
+The user has configured the following **EC2 Optimization Preferences**:
 {prefs_block}
 
-Audience: {persona_title}
-Guidance: {persona_instructions}
+**Audience:** {persona_title}  
+**Guidance:** {persona_instructions}
 
-Explain in bullet points how these settings influence cost-saving recommendations.
-Keep it clear, concise, and role-appropriate.
+Instructions:
+- Present insights in clear, **bullet points**.
+- Tailor the tone and detail to the **audience**.
+- **Explain how each setting contributes to cost savings.**
+- Include **specific examples or use cases** where applicable.
+- Mention relevant **instance details** (e.g., instance type, usage pattern).
+- Avoid generalizations. Be **precise and actionable**.
+
 """.strip())
 
 def build_explain_prompt(preferences: dict, persona: str = "engineer") -> str:
