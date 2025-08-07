@@ -11,9 +11,10 @@ from dotenv import load_dotenv
 from cli.cli_chat import start_chat
 from cli.cli_prompts import explain_prefs
 # Load environment variables
-load_dotenv()
+from config.settings import settings
+
 # Constants
-BASE_URL = os.getenv("FOAI_API_URL", "http://localhost:8000")
+BASE_URL = settings.FOAI_API_URL
 PID_DIR = Path(".foai")
 LOG_DIR = Path("logs")
 API_PID_FILE = PID_DIR / "api.pid"
@@ -22,7 +23,61 @@ API_LOG = LOG_DIR / "api.log"
 UI_LOG = LOG_DIR / "ui.log"
 VERSION = "0.1.6"
 # Server Control
+def check_prerequisites():
+    """Check if all prerequisites are met"""
+    print("[fo.ai] Checking prerequisites...")
+    
+    # Check Redis
+    try:
+        import redis
+        r = redis.Redis(host='localhost', port=6379, db=0)
+        r.ping()
+        print("Redis is running")
+    except Exception as e:
+        print("Redis is not running")
+        print("   Please start Redis: brew services start redis (macOS) or sudo systemctl start redis-server (Linux)")
+        return False
+    
+    # Check Ollama
+    try:
+        response = requests.get("http://localhost:11434/api/tags", timeout=5)
+        if response.status_code == 200:
+            models = response.json().get("models", [])
+            llama3_available = any("llama3" in model.get("name", "").lower() for model in models)
+            if llama3_available:
+                print("Ollama is running with Llama3 model")
+            else:
+                print("Ollama is running but Llama3 model not found")
+                print("   Run: ollama pull llama3")
+                return False
+        else:
+            print("Ollama is not responding")
+            return False
+    except Exception as e:
+        print("Ollama is not running")
+        print("   Please start Ollama: ollama serve")
+        return False
+    
+    # Check AWS credentials (optional)
+    try:
+        import boto3
+        sts = boto3.client('sts')
+        sts.get_caller_identity()
+        print("AWS credentials are configured")
+    except Exception as e:
+        print("AWS credentials not found or invalid")
+        print("   Please configure AWS CLI: aws configure")
+        print("   Or set environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY")
+        print("   Continuing without AWS credentials (some features may not work)")
+    
+    return True
+
 def start_server(target):
+    # Check prerequisites first
+    if not check_prerequisites():
+        print("[fo.ai] Prerequisites not met. Please fix the issues above and try again.")
+        return
+    
     PID_DIR.mkdir(exist_ok=True)
     LOG_DIR.mkdir(exist_ok=True)
     if target in ("api", "all"):

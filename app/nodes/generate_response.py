@@ -32,11 +32,32 @@ def generate_response(state: CostState) -> CostState:
         print("\n[generate_response] State before response generation:")
         pprint.pprint(state)
 
-    if not state.get("recommendations"):
+    # Combine EC2 and S3 recommendations
+    ec2_recommendations = state.get("recommendations", [])
+    s3_recommendations = state.get("s3_recommendations", [])
+    all_recommendations = ec2_recommendations + s3_recommendations
+
+    if not all_recommendations:
         state["response"] = "No recommendations found. Everything looks optimized!"
         return state
 
-    formatted = prompt.format(recommendations=state["recommendations"])
+    # Format recommendations for LLM
+    formatted_recommendations = []
+    
+    if ec2_recommendations:
+        formatted_recommendations.append("EC2 Recommendations:")
+        for rec in ec2_recommendations:
+            formatted_recommendations.append(f"- {rec.get('InstanceId')}: {rec.get('Reason')} (Savings: ${rec.get('EstimatedSavings', 0):.2f})")
+    
+    if s3_recommendations:
+        formatted_recommendations.append("\nS3 Recommendations:")
+        for rec in s3_recommendations:
+            bucket_name = rec.get('BucketName', 'unknown')
+            recommendation = rec.get('Recommendation', {})
+            formatted_recommendations.append(f"- {bucket_name}: {recommendation.get('Reason', 'No reason')}")
+
+    recommendations_text = "\n".join(formatted_recommendations)
+    formatted = prompt.format(recommendations=recommendations_text)
     result = llm.invoke(formatted)
     state["response"] = result.content.strip()
 
