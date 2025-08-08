@@ -15,7 +15,7 @@ TEXT_COLOR = "#006A71"
 # Load .env
 load_dotenv()
 API_URL = os.getenv("FOAI_API_URL", "http://localhost:8000")
-USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
+USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "false").lower() == "true"
 
 # Page setup
 st.set_page_config(page_title="fo.ai – Cloud Cost Intelligence", layout="wide")

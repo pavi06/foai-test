@@ -216,7 +216,7 @@ Once you have everything running, you can:
 
 ## Pro Tips
 
-- **Start with mock data**: Set `USE_MOCK_DATA=true` in your `.env` to test without hitting AWS
+- **Start with mock data**: Set `USE_MOCK_DATA=false` in your `.env` to test without hitting AWS
 - **Use specific queries**: Instead of "analyze everything", try "analyze instance i-abc123"
 - **Save your preferences**: The system remembers your settings, so you don't have to reconfigure every time
 - **Check the chat history**: Your previous analyses are saved and can be reviewed

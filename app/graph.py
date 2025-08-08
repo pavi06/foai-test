@@ -13,6 +13,7 @@ builder = StateGraph(CostState)
 # Step 2: Add nodes
 builder.add_node("analyze_query", analyze_query)
 builder.add_node("fetch_mock_data", fetch_data)
+builder.add_node("route_recommendation", route_recommendation)
 builder.add_conditional_edges(
     "route_recommendation",            
     route_recommendation,           

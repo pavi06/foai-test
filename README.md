@@ -44,7 +44,7 @@ Create a `.env` file with:
 
 ```env
 FOAI_API_URL=http://localhost:8000
-USE_MOCK_DATA=true  # Set to false when you want real AWS data
+USE_MOCK_DATA=false  # Set to false when you want real AWS data
 ```
 
 ### 3. Fire It Up

@@ -9,13 +9,14 @@ import os
 import json
 from langchain_ollama import ChatOllama
 from fastapi import Request
+from datetime import datetime
 
 # API prompts
 from prompts.pref_explainer import build_explain_prompt
 
 from data.aws.ec2 import fetch_ec2_instances, summarize_cost_by_region
 from data.aws.s3 import fetch_s3_data
-from app.nodes.generate_recommendations import generate_recommendations, get_recommendations_and_prompt, generate_s3_recommendations
+from app.nodes.generate_recommendations import generate_recommendations, get_recommendations_and_prompt, generate_s3_recommendations_legacy
 from app.nodes.generate_response import stream_response
 
 
@@ -24,6 +25,12 @@ from memory.preferences import get_user_preferences
 
 # Import settings first
 from config.settings import settings
+
+# Import the new agentic service detector
+from app.agents.service_detector import AgenticServiceDetector
+
+# Initialize the agentic service detector
+service_detector = AgenticServiceDetector()
 
 class PreferencePayload(BaseModel):
     user_id: str
@@ -72,100 +79,8 @@ class AnalyzeResponse(BaseModel):
     service_type: str = "ec2"  # "ec2", "s3", or "mixed"
 
 def detect_service_type(query: str) -> dict:
-    """Detect if the query is about EC2, S3, agent actions, or both, and extract specific resource identifiers"""
-    query_lower = query.lower()
-    
-    ec2_keywords = ["ec2", "instance", "cpu", "compute", "server", "machine", "virtual"]
-    s3_keywords = ["s3", "bucket", "storage", "object", "file", "lifecycle", "glacier", "ia", "recommendation", "recommendations", "optimization", "optimize", "cost", "savings"]
-    
-    # Agent action keywords
-    agent_action_keywords = [
-        "stop", "start", "shutdown", "power off", "power on", "boot", "turn off", "turn on",
-        "schedule", "schedule shutdown", "schedule startup", "auto shutdown", "auto start",
-        "delete schedule", "remove schedule", "cancel schedule", "list schedules"
-    ]
-    
-    ec2_score = sum(1 for keyword in ec2_keywords if keyword in query_lower)
-    s3_score = sum(1 for keyword in s3_keywords if keyword in query_lower)
-    agent_score = sum(1 for keyword in agent_action_keywords if keyword in query_lower)
-    
-    # Extract specific resource identifiers
-    specific_resources = {
-        "ec2_instances": [],
-        "s3_buckets": []
-    }
-    
-    # Extract EC2 instance IDs (format: i-xxxxxxxxxxxxxxxxx)
-    import re
-    ec2_instance_pattern = r'\bi-[a-f0-9]{8,17}\b'
-    ec2_instances = re.findall(ec2_instance_pattern, query, re.IGNORECASE)
-    specific_resources["ec2_instances"] = ec2_instances
-    
-    # Extract S3 bucket names - ONLY when explicitly specified
-    bucket_matches = []
-    
-    # Pattern 1: Quoted bucket names (most reliable)
-    # Examples: "my-bucket", 'pavi-test-bucket'
-    quoted_bucket_pattern = r'["\']([a-z0-9][a-z0-9.-]*[a-z0-9])["\']'
-    quoted_matches = re.findall(quoted_bucket_pattern, query, re.IGNORECASE)
-    bucket_matches.extend(quoted_matches)
-    
-    # Pattern 2: "bucket name" format (very specific)
-    # Examples: bucket "my-bucket", s3 "my-bucket"
-    bucket_name_pattern = r'\b(?:bucket|s3)\s+["\']([a-z0-9][a-z0-9.-]*[a-z0-9])["\']'
-    bucket_name_matches = re.findall(bucket_name_pattern, query, re.IGNORECASE)
-    bucket_matches.extend(bucket_name_matches)
-    
-    # Pattern 3: "name bucket" format (very specific)
-    # Examples: "my-bucket" bucket, "my-bucket" s3
-    name_bucket_pattern = r'["\']([a-z0-9][a-z0-9.-]*[a-z0-9])["\']\s+(?:bucket|s3)\b'
-    name_bucket_matches = re.findall(name_bucket_pattern, query, re.IGNORECASE)
-    bucket_matches.extend(name_bucket_matches)
-    
-    # Pattern 4: Very specific unquoted patterns (avoid common words)
-    # Only match if it looks like a real bucket name (not common words)
-    # Examples: bucket my-app-logs, s3 backup-data
-    # But NOT: bucket the, s3 all, bucket this, etc.
-    common_words = r'\b(?:the|all|this|that|these|those|my|your|our|their|some|any|each|every|both|either|neither|few|many|several|various|different|same|similar|other|another|next|last|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|give|get|show|list|check|analyze|analyse|find|search|look|see|view|display|print|output|result|data|info|information|details|summary|report|analysis|recommendation|recommendations|optimization|optimize|cost|savings|money|storage|object|file|lifecycle|glacier|ia|standard|intelligent|archive|deep|archive|onezone|reduced|redundancy|rr|zr|szr|glacier|instant|retrieval|flexible|retrieval|expedited|bulk|standard|ia|glacier|deep|archive|onezone|reduced|redundancy|rr|zr|szr|glacier|instant|retrieval|flexible|retrieval|expedited|bulk)\b'
-    
-    # Look for bucket name followed by "bucket" or "s3" but exclude common words
-    specific_bucket_pattern = r'\b([a-z0-9][a-z0-9.-]{2,}[a-z0-9])\s+(?:bucket|s3)\b'
-    specific_matches = re.findall(specific_bucket_pattern, query, re.IGNORECASE)
-    
-    # Filter out common words
-    filtered_matches = []
-    for match in specific_matches:
-        if not re.match(common_words, match, re.IGNORECASE):
-            filtered_matches.append(match)
-    
-    bucket_matches.extend(filtered_matches)
-    
-    # Remove duplicates and store
-    specific_resources["s3_buckets"] = list(set(bucket_matches))
-    
-    # Determine service type
-    if agent_score > 0 and (ec2_score > 0 or "instance" in query_lower):
-        service_type = "agent_ec2"
-    elif ec2_score > 0 and s3_score > 0:
-        service_type = "mixed"
-    elif s3_score > 0:
-        service_type = "s3"
-    elif ec2_score > 0:
-        service_type = "ec2"
-    else:
-        # Default to EC2 if no clear service type detected
-        service_type = "ec2"
-    
-    print(f"[SERVICE DETECTION] Query: '{query}'")
-    print(f"   Service type: {service_type}")
-    print(f"   EC2 instances found: {specific_resources['ec2_instances']}")
-    print(f"   S3 buckets found: {specific_resources['s3_buckets']}")
-    
-    return {
-        "service_type": service_type,
-        "specific_resources": specific_resources,
-        "is_specific_analysis": len(specific_resources["ec2_instances"]) > 0 or len(specific_resources["s3_buckets"]) > 0
-    }
+    """Use agentic approach to detect service type and extract resources"""
+    return service_detector.detect_service_type(query)
 
 def analyze_ec2_resources(user_id: str, region: str, rules: dict, specific_instance_ids: list = None) -> dict:
     """Analyze EC2 resources and return detailed recommendations"""
@@ -198,18 +113,39 @@ def analyze_ec2_resources(user_id: str, region: str, rules: dict, specific_insta
     recommendations = generate_recommendations(ec2_data, rules)
     
     if not recommendations:
-        if specific_instance_ids:
-            return {
-                "response": f"**No optimization opportunities found** for the specified instances: {specific_instance_ids}. These instances appear to be well-utilized based on your current preferences.",
-                "raw": [],
-                "total_savings": 0.0
-            }
+        # Check if we have instances with low CPU usage that might need attention
+        low_cpu_instances = [inst for inst in ec2_data if inst.get("AverageCPU", 100) < 10]
+        
+        if low_cpu_instances:
+            # Generate a helpful response for low CPU instances
+            instance_details = []
+            for inst in low_cpu_instances:
+                instance_details.append(f"- **{inst['InstanceId']}** ({inst['InstanceType']}): {inst.get('AverageCPU', 0)}% CPU usage")
+            
+            response_text = f"## **EC2 Analysis Results**\n\n"
+            response_text += f"**Region:** `{region}`  \n"
+            response_text += f"**Analysis Type:** {analysis_type}  \n"
+            response_text += f"**Total Instances Analyzed:** {len(ec2_data)}  \n\n"
+            response_text += f"### **Low CPU Usage Instances Found**\n\n"
+            response_text += f"The following instances have low CPU usage and could be optimized:\n\n"
+            response_text += "\n".join(instance_details)
+            response_text += f"\n\n**Recommendation:** Consider these optimization strategies:\n"
+            response_text += f"1. **Stop during non-business hours** - Save the full monthly compute cost\n"
+            response_text += f"2. **Downsize instance types** - Switch to smaller instances if possible\n"
+            response_text += f"3. **Use Reserved Instances** - Save 30-60% with 1-3 year commitments\n"
+            response_text += f"4. **Enable Auto Scaling** - Scale down during low usage periods\n\n"
+            response_text += f"*Note: These instances have low CPU usage indicating potential for cost optimization.*"
         else:
-            return {
-                "response": f"**No EC2 optimization opportunities found** in region `{region}`. All instances appear to be well-utilized based on your current preferences.",
-                "raw": [],
-                "total_savings": 0.0
-            }
+            if specific_instance_ids:
+                response_text = f"Analysis complete for EC2 instance(s): {specific_instance_ids}. No optimization recommendations are required at this time."
+            else:
+                response_text = f"EC2 analysis complete for region `{region}`. No optimization recommendations are required at this time."
+        
+        return {
+            "response": response_text,
+            "raw": [],
+            "total_savings": 0.0
+        }
     
     total_savings = sum(r.get("EstimatedSavings", 0.0) for r in recommendations)
     total_monthly_cost = sum(r.get("MonthlyCost", 0.0) for r in recommendations)
@@ -360,18 +296,18 @@ def analyze_s3_resources(user_id: str, region: str, rules: dict, specific_bucket
             }
 
     print(f"[API] Found {len(valid_buckets)} valid S3 buckets, generating recommendations...")
-    recommendations = generate_s3_recommendations(valid_buckets, rules)
+    recommendations = generate_s3_recommendations_legacy(valid_buckets, rules)
     
     if not recommendations:
         if specific_bucket_names:
             return {
-                "response": f"**No S3 optimization opportunities found** for the specified buckets: {specific_bucket_names}. These buckets appear to be properly configured.",
+                "response": f"Analysis complete for S3 bucket(s): {specific_bucket_names}. No optimization recommendations are required at this time.",
                 "raw": [],
                 "total_savings": 0.0
             }
         else:
             return {
-                "response": f"**No S3 optimization opportunities found** in region `{region}`. All buckets appear to be properly configured.",
+                "response": f"S3 analysis complete for region `{region}`. No optimization recommendations are required at this time.",
                 "raw": [],
                 "total_savings": 0.0
             }
@@ -623,13 +559,18 @@ def analyze(request: AnalyzeRequest):
 
 def analyze_fallback(request: AnalyzeRequest, user_id: str, rules: dict):
     """Fallback analysis using direct function calls"""
-    # Detect service type and specific resources from query
+    # Detect service type and specific resources from query using agentic approach
     service_type_info = detect_service_type(request.query)
     service_type = service_type_info["service_type"]
     specific_resources = service_type_info["specific_resources"]
     is_specific_analysis = service_type_info["is_specific_analysis"]
+    confidence = service_type_info.get("confidence", 0.5)
+    reasoning = service_type_info.get("reasoning", "No reasoning provided")
+    method = service_type_info.get("method", "unknown")
     
-    print(f"Fallback: Detected service type: {service_type}")
+    print(f"Fallback: Detected service type: {service_type} (confidence: {confidence:.2f})")
+    print(f"Fallback: Detection method: {method}")
+    print(f"Fallback: Reasoning: {reasoning}")
     print(f"Fallback: Specific analysis: {is_specific_analysis}")
     print(f"Fallback: Specific resources: {specific_resources}")
 
@@ -865,9 +806,9 @@ async def stream_analysis(req: AnalyzeStreamRequest):
             prompt = result["prompt"]
         else:
             if specific_instance_ids:
-                prompt = f"No EC2 instances found with the specified IDs: {specific_instance_ids}."
+                prompt = f"Analysis complete for EC2 instance(s): {specific_instance_ids}. No optimization recommendations are required at this time."
             else:
-                prompt = f"No EC2 instances found in region `{req.region}`."
+                prompt = f"EC2 analysis complete for region `{req.region}`. No optimization recommendations are required at this time."
     elif service_type == "s3":
         specific_bucket_names = specific_resources.get("s3_buckets", [])
         if specific_bucket_names:
@@ -878,17 +819,21 @@ async def stream_analysis(req: AnalyzeStreamRequest):
             s3_data = fetch_s3_data(region=req.region)
             
         if s3_data:
-            recommendations = generate_s3_recommendations(s3_data, rules)
+            print(f"Stream: Generating S3 recommendations")
+            print(f"Stream: Rules: {rules}")
+            recommendations = generate_s3_recommendations_legacy(s3_data, rules)
             if recommendations:
                 if specific_bucket_names:
-                    prompt = f"Found {len(recommendations)} of {len(specific_bucket_names)} specified S3 buckets that need lifecycle policies."
+                    print(f"Stream: Found {len(recommendations)} of {len(specific_bucket_names)} specified S3 buckets that need lifecycle policies.")
+                    prompt = f"Found {len(recommendations)} of {len(specific_bucket_names)} specified S3 buckets that need lifecycle policies. There are the recommendations arrived based ont he preferences {recommendations}. Understand this and give a human readable response."
                 else:
-                    prompt = f"Found {len(recommendations)} S3 buckets that need lifecycle policies."
+                    print(f"Stream: Found {len(recommendations)} S3 buckets that need lifecycle policies.")
+                    prompt = f"Found {len(recommendations)} S3 buckets that need lifecycle policies.There are the recommendations arrived based ont he preferences {recommendations}. Understand this and give a human readable response."
             else:
                 if specific_bucket_names:
-                    prompt = f"No S3 optimization recommendations found for the specified buckets: {specific_bucket_names}."
+                    prompt = f"Analysis complete for S3 bucket(s): {specific_bucket_names}. No optimization recommendations are required at this time."
                 else:
-                    prompt = "No S3 optimization recommendations found."
+                    prompt = "S3 analysis complete. No optimization recommendations are required at this time."
         else:
             if specific_bucket_names:
                 prompt = f"No S3 buckets found with the specified names: {specific_bucket_names}."
@@ -991,4 +936,19 @@ app.include_router(agent_router)
 
 # Import agent integration
 from app.agents.cog_integration import CogIntegration
+
+@app.get("/detection/stats", tags=["Detection"])
+def get_detection_stats():
+    """Get statistics about the agentic service detection system"""
+    return service_detector.get_detection_stats()
+
+@app.post("/detection/test", tags=["Detection"])
+def test_detection(request: AnalyzeRequest):
+    """Test the agentic service detection with a query"""
+    result = detect_service_type(request.query)
+    return {
+        "query": request.query,
+        "detection_result": result,
+        "timestamp": datetime.now().isoformat()
+    }
 

@@ -75,55 +75,68 @@ st.markdown("""
     }
     
     .session-info-card {
-        background: transparent;
-        border-radius: 10px;
-        padding: 15px 20px;
-        margin: 10px 0;
-        border: 2px solid;
-        border-image: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #f5576c) 1;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin: 6px 0;
+        border: 2px solid transparent;
+        background-clip: padding-box;
         position: relative;
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
     }
     
     .session-info-card::before {
         content: '';
         position: absolute;
-        top: -2px;
-        left: -2px;
-        right: -2px;
-        bottom: -2px;
-        background: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #f5576c);
-        border-radius: 12px;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 8px;
+        padding: 2px;
+        background: #667eea;
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
         z-index: -1;
-        opacity: 0.3;
     }
     
     .session-info-text {
-        color: #e0e0e0;
+        color: #f8f9fa;
         font-family: 'Poppins', sans-serif;
         font-weight: 500;
+        font-size: 0.5rem;
         margin: 0;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        letter-spacing: 0.2px;
     }
                 
     .chat-message {
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
-        
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1.25rem;
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
     }
+    
+    .chat-message:hover {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        transform: translateY(-1px);
+    }
+    
     .user-message {
-        border-left: 2px solid #2196f3;
-        box-shadow: 0 2px 4px 0 #2196f3;
+        border-left: 3px solid #667eea;
+        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
     }
+    
     .assistant-message {
-        border-left: 2px solid #9c27b0;
-        box-shadow: 0 2px 4px 0 #9c27b0;
+        border-left: 3px solid #764ba2;
+        box-shadow: 0 4px 16px rgba(118, 75, 162, 0.15);
     }
     .sidebar .element-container {
         margin-bottom: 1rem;
@@ -177,39 +190,62 @@ st.markdown("""
     }
                 
     .glassmorphic-container {
-        background: rgba(255, 255, 255, 0.1) !important;
-        backdrop-filter: blur(10px) !important;
-        -webkit-backdrop-filter: blur(10px) !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-        border-radius: 1rem !important;
-        padding: 1.5rem !important;
-        margin: 1rem 0 !important;
-        box-shadow: 0 8px 32px 0 rgba(102, 126, 234, 0.2) !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(102, 126, 234, 0.15) !important;
+        border-radius: 16px !important;
+        padding: 1.75rem !important;
+        margin: 1.25rem 0 !important;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .glassmorphic-container:hover {
+        box-shadow: 0 12px 40px 0 rgba(102, 126, 234, 0.2) !important;
+        border-color: rgba(102, 126, 234, 0.25) !important;
     }
                 
     .streamlit-expanderHeader {
-        background: rgba(255, 255, 255, 0.1) !important;
-        backdrop-filter: blur(10px) !important;
-        -webkit-backdrop-filter: blur(10px) !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-        border-radius: 1rem !important;
-        box-shadow: 0 8px 32px 0 rgba(102, 126, 234, 0.2) !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(102, 126, 234, 0.15) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.1) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .streamlit-expanderHeader:hover {
+        background: rgba(255, 255, 255, 0.12) !important;
+        border-color: rgba(102, 126, 234, 0.25) !important;
+        box-shadow: 0 6px 20px 0 rgba(102, 126, 234, 0.15) !important;
     }
     
     .streamlit-expanderContent {
-        background: rgba(255, 255, 255, 0.1) !important;
-        backdrop-filter: blur(10px) !important;
-        -webkit-backdrop-filter: blur(10px) !important;
-        border: 1px solid rgba(102, 126, 234, 0.2) !important;
-        border-radius: 1rem !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(102, 126, 234, 0.1) !important;
+        border-radius: 12px !important;
         padding: 1.5rem !important;
-        box-shadow: 0 8px 32px 0 rgba(102, 126, 234, 0.2) !important;
+        box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.08) !important;
+        margin-top: 8px !important;
     }
                 
     [data-testid="stChatInputSubmitButton"] {
-        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%) !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         color: white !important;
         border: none !important;
+        border-radius: 12px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+    }
+    
+    [data-testid="stChatInputSubmitButton"]:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4) !important;
     }
                 
     .stExpander {
@@ -249,16 +285,20 @@ st.markdown("""
     }
                 
     button[data-testid="stBaseButton-secondaryFormSubmit"]{
-        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%) !important;
-        opacity: 0.8 !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        opacity: 0.9 !important;
         color: white !important;
         border: none !important;
-        border-radius: 0.5rem !important;
+        border-radius: 12px !important;
         font-weight: 600 !important;
         font-family: 'Poppins', sans-serif !important;
+        font-size: 0.95rem !important;
+        padding: 12px 24px !important;
         display: flex;
         justify-content: center;
         align-items: center;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
     }
     
     .stForm{
@@ -268,17 +308,23 @@ st.markdown("""
     }
 
     button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {
-        background: none !important;
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+        opacity: 1 !important;
         color: white !important;
-        border: 1px solid #6136cd !important;
-        border-radius: 0.5rem !important;
+        border: none !important;
+        border-radius: 12px !important;
         font-weight: 600 !important;
         font-family: 'Poppins', sans-serif !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4) !important;
     }
                 
     [data-testid="stTextInputRootElement"]:focus{
-        background: white !important;
-        border: 1px solid pink !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 2px solid #667eea !important;
+        border-radius: 8px !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+        transition: all 0.3s ease !important;
     }
             
     label > div.toggle{

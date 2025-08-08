@@ -147,6 +147,13 @@ def get_object_stats(bucket_name: str, prefix: Optional[str] = None) -> Dict:
     for storage_class, count in objects_by_storage_class.items():
         size_gb = size_by_storage_class[storage_class] / (1024**3)
         print(f"         {storage_class}: {count:,} objects, {size_gb:.2f} GB")
+    
+    print(f"      📅 Last modified dates by group:")
+    for group, last_modified in last_modified_map.items():
+        print(f"         {group}: {format_datetime_utc530(last_modified)}")
+    
+    print(f"      🔍 [DEBUG] Raw object count from AWS: {object_count}")
+    print(f"      🔍 [DEBUG] Raw total size from AWS: {total_size} bytes")
 
     return {
         "TotalObjects": object_count,
@@ -243,6 +250,7 @@ def fetch_s3_data(
     print(f"\n🔍 [S3 ANALYSIS] Starting S3 bucket analysis...")
     print(f"📍 [S3 ANALYSIS] Target region: {region or 'all regions'}")
     print(f"🎯 [S3 ANALYSIS] Bucket filter: {bucket_names or 'all buckets'}")
+    print(f"🌐 [S3 ANALYSIS] Using REAL AWS data (not mock data)")
     
     all_buckets = get_all_buckets()
 
