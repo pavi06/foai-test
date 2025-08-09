@@ -83,7 +83,7 @@ def detect_service_type(query: str) -> dict:
     return service_detector.detect_service_type(query)
 
 def analyze_ec2_resources(user_id: str, region: str, rules: dict, specific_instance_ids: list = None) -> dict:
-    """Analyze EC2 resources and return detailed recommendations"""
+    """Analyze EC2 resources and return detailed, human-friendly recommendations (top 5)"""
     print(f"\n[API] Starting EC2 resource analysis for user {user_id} in region {region}")
     
     if specific_instance_ids:
@@ -91,7 +91,7 @@ def analyze_ec2_resources(user_id: str, region: str, rules: dict, specific_insta
         ec2_data = fetch_ec2_instances(instance_ids=specific_instance_ids, region=region)
         analysis_type = "specific instances"
     else:
-        print(f"[API] Analyzing all running instances")
+        print(f"[API] Analyzing all running instances (will limit to top 5 recommendations)")
         ec2_data = fetch_ec2_instances(region=region)
         analysis_type = "all instances"
     
@@ -117,23 +117,18 @@ def analyze_ec2_resources(user_id: str, region: str, rules: dict, specific_insta
         low_cpu_instances = [inst for inst in ec2_data if inst.get("AverageCPU", 100) < 10]
         
         if low_cpu_instances:
-            # Generate a helpful response for low CPU instances
-            instance_details = []
-            for inst in low_cpu_instances:
-                instance_details.append(f"- **{inst['InstanceId']}** ({inst['InstanceType']}): {inst.get('AverageCPU', 0)}% CPU usage")
+            # Generate a helpful response for low CPU instances in key points format
+            response_text = f"## **EC2 Cost Optimization Analysis - Low CPU Usage Instances**\n\n"
+            response_text += f"**Key Points:**\n\n"
             
-            response_text = f"## **EC2 Analysis Results**\n\n"
-            response_text += f"**Region:** `{region}`  \n"
-            response_text += f"**Analysis Type:** {analysis_type}  \n"
-            response_text += f"**Total Instances Analyzed:** {len(ec2_data)}  \n\n"
-            response_text += f"### **Low CPU Usage Instances Found**\n\n"
-            response_text += f"The following instances have low CPU usage and could be optimized:\n\n"
-            response_text += "\n".join(instance_details)
-            response_text += f"\n\n**Recommendation:** Consider these optimization strategies:\n"
-            response_text += f"1. **Stop during non-business hours** - Save the full monthly compute cost\n"
-            response_text += f"2. **Downsize instance types** - Switch to smaller instances if possible\n"
-            response_text += f"3. **Use Reserved Instances** - Save 30-60% with 1-3 year commitments\n"
-            response_text += f"4. **Enable Auto Scaling** - Scale down during low usage periods\n\n"
+            for inst in low_cpu_instances[:5]:  # Limit to top 5
+                response_text += f"• **Instance {inst['InstanceId']}** ({inst['InstanceType']}): {inst.get('AverageCPU', 0)}% CPU usage\n"
+            
+            response_text += f"\n**Recommendation:** Consider these optimization strategies:\n"
+            response_text += f"• **Stop during non-business hours** - Save the full monthly compute cost\n"
+            response_text += f"• **Downsize instance types** - Switch to smaller instances if possible\n"
+            response_text += f"• **Use Reserved Instances** - Save 30-60% with 1-3 year commitments\n"
+            response_text += f"• **Enable Auto Scaling** - Scale down during low usage periods\n\n"
             response_text += f"*Note: These instances have low CPU usage indicating potential for cost optimization.*"
         else:
             if specific_instance_ids:
@@ -147,78 +142,48 @@ def analyze_ec2_resources(user_id: str, region: str, rules: dict, specific_insta
             "total_savings": 0.0
         }
     
-    total_savings = sum(r.get("EstimatedSavings", 0.0) for r in recommendations)
-    total_monthly_cost = sum(r.get("MonthlyCost", 0.0) for r in recommendations)
+    # Limit to top 5 recommendations (already done in generate_recommendations)
+    top_recommendations = recommendations[:5]
+    total_savings = sum(r.get("EstimatedSavings", 0.0) for r in top_recommendations)
+    total_monthly_cost = sum(r.get("estimated_monthly_cost", 0.0) for r in top_recommendations)
     
-    # Generate detailed markdown response with specific resource details
-    markdown_summary = f"## **EC2 Cost Optimization Analysis**\n\n"
-    markdown_summary += f"**Region:** `{region}`  \n"
-    markdown_summary += f"**Analysis Type:** {analysis_type}  \n"
-    markdown_summary += f"**Total Instances Analyzed:** {len(ec2_data)}  \n"
-    markdown_summary += f"**Optimization Opportunities:** {len(recommendations)}  \n"
-    markdown_summary += f"**Total Monthly Cost:** ${total_monthly_cost:.2f}  \n"
-    markdown_summary += f"**Potential Monthly Savings:** ${total_savings:.2f}  \n\n"
+    # Generate detailed, human-friendly markdown response in key points format
+    markdown_summary = f"## **EC2 Cost Optimization Analysis - Top {len(top_recommendations)} Recommendations**\n\n"
+    markdown_summary += f"**Total Potential Monthly Savings: ${total_savings:.2f}**\n\n"
+    markdown_summary += f"**Key Points:**\n\n"
     
-    # Add specific resource summary
-    markdown_summary += f"### **Specific Resources to Target**\n\n"
-    if specific_instance_ids:
-        markdown_summary += f"**{len(recommendations)} of {len(specific_instance_ids)} requested instances** have been identified for optimization:\n\n"
-    else:
-        markdown_summary += f"**{len(recommendations)} instances** have been identified for optimization:\n\n"
-    
-    # List all instances with key details
-    for i, r in enumerate(recommendations, 1):
+    # Add key points for each instance
+    for i, r in enumerate(top_recommendations, 1):
         instance_id = r.get("InstanceId")
         instance_type = r.get("InstanceType")
+        availability_zone = r.get("AvailabilityZone", "unknown")
         avg_cpu = r.get("AverageCPU", 0)
-        monthly_cost = r.get("MonthlyCost", 0)
+        current_cpu = r.get("CurrentCPU", 0)
+        monthly_cost = r.get("estimated_monthly_cost", 0)
         savings = r.get("EstimatedSavings", 0)
-        availability_zone = r.get("AvailabilityZone", "")
+        uptime_hours = r.get("UptimeHours", 0)
+        recommendation = r.get("Recommendation", {})
+        priority = r.get("Priority", "Medium")
         
-        markdown_summary += f"**{i}. Instance `{instance_id}`**  \n"
-        markdown_summary += f"   - **Type:** {instance_type}  \n"
-        markdown_summary += f"   - **Zone:** {availability_zone}  \n"
-        markdown_summary += f"   - **CPU Usage:** {avg_cpu}% (7-day average)  \n"
-        markdown_summary += f"   - **Monthly Cost:** ${monthly_cost:.2f}  \n"
-        markdown_summary += f"   - **Potential Savings:** ${savings:.2f}/month  \n\n"
+        markdown_summary += f"• **Instance {instance_id}** ({instance_type}) in {availability_zone}:\n"
+        markdown_summary += f"  - **CPU Usage:** Current: {current_cpu}%, 7-day average: {avg_cpu}%\n"
+        markdown_summary += f"  - **Cost:** ${monthly_cost:.2f}/month, **Potential savings:** ${savings:.2f}/month\n"
+        markdown_summary += f"  - **Uptime:** {uptime_hours} hours, **Priority:** {priority}\n"
+        markdown_summary += f"  - **Action:** {recommendation.get('Action', 'No action specified')}\n"
+        markdown_summary += f"  - **Reason:** {recommendation.get('Reason', 'No reason provided')}\n"
+        markdown_summary += f"  - **Impact:** {recommendation.get('Impact', 'Unknown')}\n\n"
+        
+        # Add tags if available
+        tags = r.get('Tags', [])
+        if tags:
+            tag_str = ", ".join([f"{tag.get('Key')}={tag.get('Value')}" for tag in tags])
+            markdown_summary += f"  - **Tags:** {tag_str}\n\n"
     
-    markdown_summary += "### **Detailed Recommendations**\n\n"
-    
-    # Group by priority
-    high_priority = [r for r in recommendations if r.get("Priority") == "High"]
-    medium_priority = [r for r in recommendations if r.get("Priority") == "Medium"]
-    low_priority = [r for r in recommendations if r.get("Priority") == "Low"]
-    
-    if high_priority:
-        markdown_summary += "#### **High Priority Actions**\n\n"
-        for r in high_priority:
-            markdown_summary += generate_ec2_recommendation_markdown(r)
-    
-    if medium_priority:
-        markdown_summary += "#### **Medium Priority Actions**\n\n"
-        for r in medium_priority:
-            markdown_summary += generate_ec2_recommendation_markdown(r)
-    
-    if low_priority:
-        markdown_summary += "#### **Low Priority Actions**\n\n"
-        for r in low_priority:
-            markdown_summary += generate_ec2_recommendation_markdown(r)
-    
-    markdown_summary += f"\n### **Summary**\n\n"
-    markdown_summary += f"By implementing these recommendations, you could save **${total_savings:.2f} per month** "
-    markdown_summary += f"({(total_savings/total_monthly_cost*100):.1f}% reduction) on your EC2 costs.\n\n"
-    
-    markdown_summary += "**Next Steps:**\n"
-    markdown_summary += "1. Review each recommendation carefully\n"
-    markdown_summary += "2. Test changes in a non-production environment first\n"
-    markdown_summary += "3. Monitor performance after implementing changes\n"
-    markdown_summary += "4. Consider using AWS Cost Explorer for detailed cost analysis\n"
-    
-    print(f"[API] EC2 analysis complete. Generated {len(recommendations)} recommendations with ${total_savings:.2f} potential savings")
+    print(f"[API] EC2 analysis complete. Generated {len(top_recommendations)} recommendations with ${total_savings:.2f} potential savings")
     
     return {
         "response": markdown_summary,
-        "raw": recommendations,
+        "raw": top_recommendations,
         "total_savings": total_savings
     }
 
@@ -228,7 +193,7 @@ def generate_ec2_recommendation_markdown(recommendation: dict) -> str:
     instance_type = recommendation.get("InstanceType", "")
     availability_zone = recommendation.get("AvailabilityZone", "")
     avg_cpu = recommendation.get("AverageCPU", 0)
-    monthly_cost = recommendation.get("MonthlyCost", 0)
+    monthly_cost = recommendation.get("estimated_monthly_cost", 0)
     savings = recommendation.get("EstimatedSavings", 0)
     rec_details = recommendation.get("Recommendation", {})
     
@@ -252,7 +217,7 @@ def generate_ec2_recommendation_markdown(recommendation: dict) -> str:
     return markdown
 
 def analyze_s3_resources(user_id: str, region: str, rules: dict, specific_bucket_names: list = None) -> dict:
-    """Analyze S3 resources and return detailed recommendations"""
+    """Analyze S3 resources and return detailed recommendations (limited to first 10 buckets)"""
     print(f"\n[API] Starting S3 resource analysis for user {user_id} in region {region}")
     
     if specific_bucket_names:
@@ -260,9 +225,9 @@ def analyze_s3_resources(user_id: str, region: str, rules: dict, specific_bucket
         s3_data = fetch_s3_data(region=region, bucket_names=specific_bucket_names)
         analysis_type = "specific buckets"
     else:
-        print(f"[API] Analyzing all buckets")
+        print(f"[API] Analyzing first 10 buckets")
         s3_data = fetch_s3_data(region=region)
-        analysis_type = "all buckets"
+        analysis_type = "first 10 buckets"
     
     if not s3_data:
         if specific_bucket_names:
@@ -315,23 +280,12 @@ def analyze_s3_resources(user_id: str, region: str, rules: dict, specific_bucket
     total_savings = sum(r.get("CostAnalysis", {}).get("PotentialSavings", 0.0) for r in recommendations)
     total_current_cost = sum(r.get("CostAnalysis", {}).get("CurrentMonthlyCost", 0.0) for r in recommendations)
     
-    # Generate detailed markdown response with specific bucket details
-    markdown_summary = f"## **S3 Cost Optimization Analysis**\n\n"
-    markdown_summary += f"**Region:** `{region}`  \n"
-    markdown_summary += f"**Analysis Type:** {analysis_type}  \n"
-    markdown_summary += f"**Total Buckets Analyzed:** {len(valid_buckets)}  \n"
-    markdown_summary += f"**Optimization Opportunities:** {len(recommendations)}  \n"
-    markdown_summary += f"**Total Monthly Cost:** ${total_current_cost:.2f}  \n"
-    markdown_summary += f"**Potential Monthly Savings:** ${total_savings:.2f}  \n\n"
+    # Generate detailed markdown response with specific bucket details in key points format
+    markdown_summary = f"## **S3 Cost Optimization Analysis - First {len(valid_buckets)} Buckets**\n\n"
+    markdown_summary += f"**Total Potential Monthly Savings: ${total_savings:.2f}**\n\n"
+    markdown_summary += f"**Key Points:**\n\n"
     
-    # Add specific resource summary
-    markdown_summary += f"### **Specific Buckets to Configure**\n\n"
-    if specific_bucket_names:
-        markdown_summary += f"**{len(recommendations)} of {len(specific_bucket_names)} requested buckets** need lifecycle policy configuration:\n\n"
-    else:
-        markdown_summary += f"**{len(recommendations)} buckets** need lifecycle policy configuration:\n\n"
-    
-    # List all buckets with key details
+    # List all buckets with key points
     for i, r in enumerate(recommendations, 1):
         bucket_name = r.get("BucketName", "")
         basic_info = r.get("BasicInfo", {})
@@ -339,32 +293,14 @@ def analyze_s3_resources(user_id: str, region: str, rules: dict, specific_bucket
         cost_analysis = r.get("CostAnalysis", {})
         rec_details = r.get("Recommendation", {})
         
-        markdown_summary += f"**{i}. Bucket `{bucket_name}`**  \n"
-        markdown_summary += f"   - **Region:** {basic_info.get('Region', 'unknown')}  \n"
-        markdown_summary += f"   - **Objects:** {object_stats.get('TotalObjects', 0):,}  \n"
-        markdown_summary += f"   - **Size:** {object_stats.get('TotalSizeGB', 0):.2f} GB  \n"
-        markdown_summary += f"   - **Current Cost:** ${cost_analysis.get('CurrentMonthlyCost', 0):.2f}/month  \n"
-        markdown_summary += f"   - **Potential Savings:** ${cost_analysis.get('PotentialSavings', 0):.2f}/month  \n"
-        markdown_summary += f"   - **Last Modified:** {rec_details.get('DaysSinceLastModified', 0)} days ago  \n"
-        markdown_summary += f"   - **Target Storage:** {rec_details.get('TargetStorageClass', 'Unknown')}  \n\n"
-    
-    markdown_summary += "### **Detailed Recommendations**\n\n"
-    
-    for r in recommendations:
-        markdown_summary += generate_s3_recommendation_markdown(r)
-    
-    markdown_summary += f"\n### **Summary**\n\n"
-    markdown_summary += f"By implementing these lifecycle policies, you could save **${total_savings:.2f} per month** "
-    if total_current_cost > 0:
-        markdown_summary += f"({(total_savings/total_current_cost*100):.1f}% reduction) on your S3 storage costs.\n\n"
-    else:
-        markdown_summary += "on your S3 storage costs.\n\n"
-    
-    markdown_summary += "**Next Steps:**\n"
-    markdown_summary += "1. Review each bucket's current configuration\n"
-    markdown_summary += "2. Implement lifecycle policies gradually\n"
-    markdown_summary += "3. Monitor access patterns before transitioning to cheaper storage\n"
-    markdown_summary += "4. Consider using S3 Intelligent Tiering for automatic optimization\n"
+        markdown_summary += f"• **Bucket {bucket_name}** ({basic_info.get('Region', 'unknown')}):\n"
+        markdown_summary += f"  - Objects: {object_stats.get('TotalObjects', 0):,}, Size: {object_stats.get('TotalSizeGB', 0):.2f} GB\n"
+        markdown_summary += f"  - Current cost: ${cost_analysis.get('CurrentMonthlyCost', 0):.2f}/month\n"
+        markdown_summary += f"  - Potential savings: ${cost_analysis.get('PotentialSavings', 0):.2f}/month\n"
+        markdown_summary += f"  - Last modified: {rec_details.get('DaysSinceLastModified', 0)} days ago\n"
+        markdown_summary += f"  - **Target storage:** {rec_details.get('TargetStorageClass', 'Unknown')}\n"
+        markdown_summary += f"  - **Action:** {rec_details.get('Action', 'No action specified')}\n"
+        markdown_summary += f"  - **Reason:** {rec_details.get('Reason', 'No reason provided')}\n\n"
     
     print(f"[API] S3 analysis complete. Generated {len(recommendations)} recommendations with ${total_savings:.2f} potential savings")
     
@@ -601,7 +537,7 @@ def analyze_fallback(request: AnalyzeRequest, user_id: str, rules: dict):
                     formatted_response = f"## **Instance Stopped Successfully**\n\n"
                     formatted_response += f"**Instance:** `{instance_id}`\n\n"
                     formatted_response += f"**Status:** Stopped as per your request\n\n"
-                    formatted_response += f"**Action:** The instance has been initiated for shutdown and will stop shortly.\n\n"
+                    formatted_response += f"**Action:** The instance has been initiated for stopping and will be stopped soon.\n\n"
                     
                 elif action_type == "start_instance":
                     formatted_response = f"## **Instance Started Successfully**\n\n"
@@ -772,7 +708,7 @@ async def stream_analysis(req: AnalyzeStreamRequest):
                 
                 # Create user-friendly streaming response
                 if action_type == "stop_instance":
-                    prompt = f"Instance `{instance_id}` stopped successfully as per your request. The instance has been initiated for shutdown and will stop shortly."
+                    prompt = f"Instance `{instance_id}` stopped successfully as per your request. The instance has been initiated for stopping and will be stopped soon."
                 elif action_type == "start_instance":
                     prompt = f"Instance `{instance_id}` started successfully as per your request. The instance is now booting up and will be available shortly."
                 elif action_type == "get_instance_status":
@@ -936,19 +872,4 @@ app.include_router(agent_router)
 
 # Import agent integration
 from app.agents.cog_integration import CogIntegration
-
-@app.get("/detection/stats", tags=["Detection"])
-def get_detection_stats():
-    """Get statistics about the agentic service detection system"""
-    return service_detector.get_detection_stats()
-
-@app.post("/detection/test", tags=["Detection"])
-def test_detection(request: AnalyzeRequest):
-    """Test the agentic service detection with a query"""
-    result = detect_service_type(request.query)
-    return {
-        "query": request.query,
-        "detection_result": result,
-        "timestamp": datetime.now().isoformat()
-    }
 

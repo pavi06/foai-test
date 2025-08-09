@@ -30,32 +30,32 @@ class AgenticServiceDetector:
     def _create_service_detection_prompt(self) -> PromptTemplate:
         """Create prompt for service type detection"""
         return PromptTemplate.from_template("""
-You are an AWS service detection expert. Analyze the user's query and determine which AWS services they are referring to.
+            You are an AWS service detection expert. Analyze the user's query and determine which AWS services they are referring to.
 
-Available service types:
-- "ec2" - For compute instances, virtual machines, servers, CPU usage, etc.
-- "s3" - For storage, buckets, objects, files, lifecycle policies, etc.
-- "agent_ec2" - For actions on EC2 instances (stop, start, schedule, etc.)
-- "mixed" - For queries about multiple services
-- "general" - For general cost optimization, billing, or unclear queries
+            Available service types:
+            - "ec2" - For compute instances, virtual machines, servers, CPU usage, etc.
+            - "s3" - For storage, buckets, objects, files, lifecycle policies, etc.
+            - "agent_ec2" - For actions on EC2 instances (stop, start, schedule, etc.)
+            - "mixed" - For queries about multiple services
+            - "general" - For general cost optimization, billing, or unclear queries
 
-Consider these factors:
-1. **EC2 indicators**: instance, server, compute, CPU, machine, virtual, running, stopped
-2. **S3 indicators**: bucket, storage, object, file, lifecycle, glacier, archive, backup
-3. **Agent actions**: stop, start, shutdown, power, schedule, boot, turn on/off
-4. **Context clues**: cost, optimization, savings, billing, usage
+            Consider these factors:
+            1. **EC2 indicators**: instance, server, compute, CPU, machine, virtual, running, stopped
+            2. **S3 indicators**: bucket, storage, object, file, lifecycle, glacier, archive, backup
+            3. **Agent actions**: stop, start, shutdown, power, schedule, boot, turn on/off
+            4. **Context clues**: cost, optimization, savings, billing, usage
 
-Return ONLY a JSON object with this exact structure:
-{{
-    "service_type": "ec2|s3|agent_ec2|mixed|general",
-    "confidence": 0.95,
-    "reasoning": "Brief explanation of why this service type was chosen"
-}}
+            Return ONLY a JSON object with this exact structure:
+            {{
+                "service_type": "ec2|s3|agent_ec2|mixed|general",
+                "confidence": 0.95,
+                "reasoning": "Brief explanation of why this service type was chosen"
+            }}
 
-User Query: {query}
+            User Query: {query}
 
-JSON Response:
-""")
+            JSON Response:
+            """)
     
     def _create_resource_extraction_prompt(self) -> PromptTemplate:
         """Create prompt for resource extraction"""

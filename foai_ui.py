@@ -502,9 +502,9 @@ if not use_chat:
     with st.expander("💡 Example Queries", expanded=False):
         st.markdown("""
         **Cost Analysis:**
-        - "Which instances are wasting money?"
+        - "Where can I save cost on compute resources?"
+        - "Give EC2 instance recommendations"
         - "Find underutilized EC2 instances"
-        - "What's costing me money in S3?"
         
         ** Agent Actions **
         - "Stop instance i-1234567890abcdef0"
@@ -555,7 +555,7 @@ if not use_chat:
                             
                             # Summary metrics
                             total_savings = sum(rec.get("EstimatedSavings", 0) for rec in result["raw"])
-                            total_cost = sum(rec.get("MonthlyCost", 0) for rec in result["raw"])
+                            total_cost = sum(rec.get("estimated_monthly_cost", 0) for rec in result["raw"])
                             
                             col1, col2, col3 = st.columns(3)
                             with col1:
@@ -570,7 +570,7 @@ if not use_chat:
                                 instance_id = rec.get("InstanceId", "Unknown")
                                 instance_type = rec.get("InstanceType", "Unknown")
                                 avg_cpu = rec.get("AverageCPU", 0)
-                                monthly_cost = rec.get("MonthlyCost", 0)
+                                monthly_cost = rec.get("estimated_monthly_cost", 0)
                                 savings = rec.get("EstimatedSavings", 0)
                                 availability_zone = rec.get("AvailabilityZone", "Unknown")
                                 priority = rec.get("Priority", "Unknown")
@@ -709,28 +709,24 @@ else:
     with st.expander("Example Queries", expanded=False):
         st.markdown("""
         **Ask about EC2:**
-        - "Which instances are wasting money?"
+        - "Where can I save cost on compute resources?"
+        - "Give EC2 instance recommendations"
         - "Find underutilized EC2 instances"
-        - "What's wrong with instance i-1234567890abcdef0?"
-        - "Should I keep instance i-0fbcfd48d33cb9245 running?"
-        - "Which instances can I stop to save money?"
+        
+        ** Enforce Actions **
+        - "Stop instance i-1234567890abcdef0"
+        - "Start instance i-1234567890abcdef0"
+        - "Schedule shutdown for i-1234567890abcdef0 during non-business hours"
+        - "Check status of instance i-1234567890abcdef0"
+        - "List all running instances"
 
         
         **Ask about S3:**
         - "Which buckets need lifecycle policies?"
         - "What's costing me money in S3?"
         - "Check bucket 'pavi-test-bucket' for optimization"
-        - "Which buckets have old data that could be archived?"
         - "How can I save money on storage?"
         
-        **Enforce Actions:**
-        - "Stop instance i-1234567890abcdef0"
-        - "Start instance i-1234567890abcdef0"
-        - "Schedule shutdown for i-1234567890abcdef0 during non-business hours"
-        - "Schedule startup for i-1234567890abcdef0 at 8 AM"
-        - "Check status of instance i-1234567890abcdef0"
-        - "List all running instances"
-        - "Delete shutdown schedule for i-1234567890abcdef0"
         
         **General questions:**
         - "What are my biggest cost optimization opportunities?"

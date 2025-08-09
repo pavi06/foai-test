@@ -116,6 +116,8 @@ class EC2Agent(BaseAgent):
             }
         ]
     
+
+    
     def validate_action(self, action_name: str, parameters: Dict[str, Any]) -> bool:
         """Validate if an action can be executed with given parameters"""
         actions = {action['name']: action for action in self.get_available_actions()}
@@ -318,30 +320,30 @@ class EC2Agent(BaseAgent):
         
         # Lambda function code
         lambda_code = f"""
-import boto3
-import json
-import logging
+            import boto3
+            import json
+            import logging
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+            logger = logging.getLogger()
+            logger.setLevel(logging.INFO)
 
-def lambda_handler(event, context):
-    ec2 = boto3.client('ec2', region_name='{self.region}')
-    
-    try:
-        response = ec2.{action}_instances(InstanceIds=['{instance_id}'])
-        logger.info(f"Successfully {{action}}ed instance {{instance_id}}")
-        return {{
-            'statusCode': 200,
-            'body': json.dumps(f'Successfully {{action}}ed {{instance_id}}')
-        }}
-    except Exception as e:
-        logger.error(f"Error {{action}}ing instance: {{e}}")
-        return {{
-            'statusCode': 500,
-            'body': json.dumps(f'Error: {{str(e)}}')
-        }}
-"""
+            def lambda_handler(event, context):
+                ec2 = boto3.client('ec2', region_name='{self.region}')
+                
+                try:
+                    response = ec2.{action}_instances(InstanceIds=['{instance_id}'])
+                    logger.info(f"Successfully {{action}}ed instance {{instance_id}}")
+                    return {{
+                        'statusCode': 200,
+                        'body': json.dumps(f'Successfully {{action}}ed {{instance_id}}')
+                    }}
+                except Exception as e:
+                    logger.error(f"Error {{action}}ing instance: {{e}}")
+                    return {{
+                        'statusCode': 500,
+                        'body': json.dumps(f'Error: {{str(e)}}')
+                    }}
+            """
         
         try:
             # Create Lambda function

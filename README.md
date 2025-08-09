@@ -1,5 +1,5 @@
 
-# fo.ai – Your Cloud Cost Companion
+# fo.ai – Cloud Cost Intelligence Platform
 
 **Version:** `v0.1.3`  
 **Built by:** A team that got tired of surprise AWS bills
@@ -16,163 +16,257 @@ Hey there! 👋 We built `fo.ai` because we were spending way too much time star
 
 ## What Can It Do For You?
 
-Here's what we've packed into this thing:
+### Intelligent Resource Analysis
+- **EC2 Cost Optimization**: Identifies underutilized instances and provides specific cost-saving recommendations
+- **S3 Lifecycle Management**: Analyzes bucket policies and object storage patterns for optimization opportunities
+- **Real-time Pricing**: Dynamic cost calculations using current AWS pricing data
+- **Performance Metrics**: CloudWatch integration for comprehensive resource utilization analysis
 
-- **🔍 Smart EC2 Analysis**: Finds those sneaky underutilized instances that are costing you money
-- **🧠 AI-Powered Insights**: Uses LLMs to explain what's happening in plain English
-- **⚡ Real-time Streaming**: Get answers as they're being generated (no more waiting!)
-- **🎯 Targeted Analysis**: Want to check just one specific instance? No problem
-- **💾 Memory**: Remembers your preferences and past analyses
-- **🎨 Clean UI**: Both web interface and command line - use whatever you prefer
-- **📊 Detailed Reports**: Not just "save money" - actual numbers and specific actions
+### AI-Powered Insights
+- **Natural Language Processing**: Conversational interface for complex cost analysis queries
+- **Intelligent Recommendations**: Context-aware suggestions with specific action items
+- **Streaming Responses**: Real-time analysis results as they're generated
+- **Memory Integration**: Remembers user preferences and analysis history
 
----
-
-## Getting Started (The Quick Way)
-
-### 1. Grab the Code
-
-```bash
-git clone https://github.com/your-org/fo.ai.git
-cd fo.ai
-pip install -r requirements.txt
-```
-
-### 2. Set Up Your Environment
-
-Create a `.env` file with:
-
-```env
-FOAI_API_URL=http://localhost:8000
-USE_MOCK_DATA=false  # Set to false when you want real AWS data
-```
-
-### 3. Fire It Up
-
-```bash
-python foai_cli.py server start all
-```
-
-Then open your browser to [http://localhost:8501](http://localhost:8501) and start asking questions!
+### Flexible Interface Options
+- **Web Application**: Streamlit-based interface for interactive analysis
+- **Command Line Interface**: Powerful CLI for automation and scripting
+- **REST API**: Programmatic access for integration with existing tools
+- **Agent System**: Automated resource management capabilities
 
 ---
 
-## How to Use It
+## Quick Start Guide
 
-### The Easy Way (Web Interface)
+### Prerequisites
 
-Just type questions like:
-- "Which EC2 instances are wasting money?"
-- "Analyze instance i-1234567890abcdef0"
-- "Check my S3 bucket 'my-app-logs' for optimization"
+Before you begin, ensure you have:
+- Python 3.8 or higher
+- AWS credentials with appropriate permissions
+- Redis server for session management
+- Ollama with Llama3 model for AI processing
 
-### The Power User Way (Command Line)
+### Installation
+
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/your-org/fo.ai.git
+   cd fo.ai
+   pip install -r requirements.txt
+   ```
+
+2. **Configure Environment**
+   Create a `.env` file in the project root:
+   ```env
+   FOAI_API_URL=http://localhost:8000
+   USE_MOCK_DATA=false
+   AWS_ACCESS_KEY_ID=your_access_key
+   AWS_SECRET_ACCESS_KEY=your_secret_key
+   AWS_DEFAULT_REGION=us-east-1
+   ```
+
+3. **Start the Application**
+   ```bash
+   python foai_cli.py server start all
+   ```
+
+4. **Access the Interface**
+   Open your browser to [http://localhost:8501](http://localhost:8501) to begin using the web interface.
+
+---
+
+## Usage Examples
+
+### Web Interface
+
+The web interface provides an intuitive way to interact with the platform. Simply type your questions in natural language:
+
+- "Which EC2 instances are underutilized and costing money?"
+- "Analyze instance i-1234567890abcdef0 for optimization opportunities"
+- "Check my S3 bucket 'production-logs' for lifecycle policy recommendations"
+- "Show me the top 5 cost optimization opportunities across all services"
+
+### Command Line Interface
+
+For power users and automation scenarios, the CLI provides comprehensive functionality:
 
 ```bash
-# Ask a quick question
-python foai_cli.py ask "How can I save money on EC2?"
+# Quick cost analysis
+python foai_cli.py ask "How can I reduce my EC2 costs?"
 
-# Get streaming responses (more fun to watch)
+# Streaming analysis with real-time updates
 python foai_cli.py ask "Show me underutilized instances" --stream
 
-# Check if everything is running
+# System status check
 python foai_cli.py status
 
-# Start/stop the servers
+# Server management
 python foai_cli.py server start all
 python foai_cli.py server stop all
+
+# View application logs
+python foai_cli.py logs api
+python foai_cli.py logs ui
 ```
 
-### Pro Tip: Make It Global
+### Global CLI Access
 
-Add this to your shell config (`~/.zshrc` or `~/.bashrc`):
+For convenience, add the CLI to your system PATH:
 
 ```bash
+# Add to your shell configuration (~/.zshrc or ~/.bashrc)
 alias foai="python /full/path/to/foai_cli.py"
-```
 
-Then you can just type:
-```bash
-foai ask "What's costing me money?"
+# Then use from anywhere
+foai ask "What's driving up my AWS costs?"
 foai server start all
 ```
 
 ---
 
-## What Makes This Different?
+## Platform Architecture
 
-We've been using various cloud cost tools, and honestly, most of them either:
-- Give you generic advice that doesn't help
-- Dump a ton of data without explaining what to do
-- Cost more than they save
+### Core Components
 
-So we built something that:
-- **Actually explains things** - No more "CPU utilization is low" without context
-- **Gives specific actions** - "Stop instance i-abc123 during non-business hours" instead of "optimize"
-- **Shows real numbers** - "You'll save $45/month" instead of "potential savings"
-- **Works with your workflow** - CLI, web UI, or API - whatever you prefer
+- **FastAPI Backend**: High-performance API server handling analysis requests
+- **Streamlit Frontend**: Interactive web interface for user interactions
+- **LangGraph Workflow**: Orchestrated data processing and analysis pipeline
+- **Agent System**: Intelligent automation for resource management
+- **Redis Memory**: Persistent storage for user preferences and session data
 
----
+### Data Processing Pipeline
 
-## Under the Hood
+1. **Query Analysis**: Natural language processing to understand user intent
+2. **Data Retrieval**: AWS API integration for real-time resource data
+3. **Cost Analysis**: Dynamic pricing calculations and optimization algorithms
+4. **Recommendation Generation**: AI-powered insights with specific actions
+5. **Response Delivery**: Streaming results with detailed explanations
 
-If you're curious about how it works:
+### Technology Stack
 
-- **Backend**: FastAPI (because it's fast and we're impatient)
-- **Frontend**: Streamlit (because we wanted something that just works)
-- **AI**: LangChain + Ollama (open source LLMs, no vendor lock-in)
-- **Memory**: Redis (because we want it to remember your preferences)
-- **Data**: AWS CloudWatch + boto3 (the official AWS SDK)
-
----
-
-## What We're Working On
-
-We're not done yet! Here's what's coming:
-
-- [x] **EC2 Analysis** - Find those money-wasting instances
-- [x] **S3 Optimization** - Lifecycle policies and storage class recommendations
-- [x] **Single Resource Analysis** - Check specific instances or buckets
-- [ ] **Multi-cloud Support** - Because not everyone is all-in on AWS
-- [ ] **Slack Integration** - Get alerts when you're burning money
-- [ ] **Custom Rules Engine** - Set your own optimization criteria
-- [ ] **Cost Forecasting** - Predict what your bill will be next month
+- **Backend Framework**: FastAPI for high-performance API development
+- **Frontend Framework**: Streamlit for rapid web application development
+- **AI Framework**: LangChain with Ollama for local LLM processing
+- **Data Storage**: Redis for session management and caching
+- **AWS Integration**: boto3 for comprehensive AWS service access
+- **Monitoring**: CloudWatch for performance metrics and resource utilization
 
 ---
 
-## Contributing
+## Current Capabilities
 
-Found a bug? Have an idea? Want to help? We'd love to hear from you!
+### Completed Features
+- **EC2 Cost Analysis**: Comprehensive instance utilization analysis with dynamic pricing
+- **S3 Optimization**: Bucket lifecycle policy analysis and storage class recommendations
+- **Single Resource Analysis**: Detailed analysis of specific instances or buckets
+- **Real-time Streaming**: Live response generation for immediate feedback
+- **Multi-region Support**: Analysis across multiple AWS regions
+- **Agent Automation**: Automated EC2 instance management capabilities
 
-1. Fork the repo
-2. Create a feature branch
-3. Make your changes
-4. Test them (we have a test suite, promise!)
-5. Send us a pull request
-
-Or just open an issue and tell us what's on your mind.
-
----
-
-## The Tech Stack
-
-We're using some pretty cool open source tools:
-
-- **[LangChain](https://github.com/langchain-ai/langchain)** - For all the AI magic
-- **[FastAPI](https://fastapi.tiangolo.com/)** - Because we like fast APIs
-- **[Streamlit](https://streamlit.io/)** - For the web interface
-- **[Redis](https://redis.io/)** - For remembering stuff
-- **[Ollama](https://ollama.com/)** - For running LLMs locally
+### In Development
+- **Multi-cloud Support**: Extending beyond AWS to Azure and Google Cloud
+- **Advanced Forecasting**: Predictive cost modeling and budget planning
+- **Integration APIs**: Slack, Teams, and email notification systems
+- **Custom Rule Engine**: User-defined optimization criteria and thresholds
+- **Cost Allocation**: Detailed cost breakdown by project, team, or application
 
 ---
 
-## License
+## Configuration Options
 
-MIT License - Use it, modify it, make it better. Just don't blame us if your AWS bill goes up! 😄
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FOAI_API_URL` | Backend API endpoint | `http://localhost:8000` |
+| `USE_MOCK_DATA` | Enable mock data for testing | `false` |
+| `AWS_ACCESS_KEY_ID` | AWS access key for API calls | Required |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key for API calls | Required |
+| `AWS_DEFAULT_REGION` | Default AWS region | `us-east-1` |
+| `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
+| `DEBUG` | Enable debug logging | `false` |
+
+### Analysis Parameters
+
+The platform supports configurable thresholds and parameters for cost optimization:
+
+- **CPU Utilization Threshold**: Minimum CPU usage for cost optimization (default: 10%)
+- **Minimum Uptime**: Minimum instance uptime for analysis (default: 24 hours)
+- **Cost Savings Threshold**: Minimum monthly savings for recommendations (default: $5)
+- **Analysis Depth**: Number of recommendations to generate (default: 5 for EC2, 10 for S3)
 
 ---
 
-## Support
+## Troubleshooting
+
+### Common Issues
+
+1. **Redis Connection Errors**
+   ```bash
+   # Start Redis service (macOS)
+   brew services start redis
+   
+   # Check Redis status
+   redis-cli ping
+   ```
+
+2. **AWS Credentials Issues**
+   - Verify AWS credentials are properly configured
+   - Ensure IAM permissions include EC2, S3, and CloudWatch access
+   - Check AWS region configuration
+
+3. **Application Startup Problems**
+   - Verify all dependencies are installed: `pip install -r requirements.txt`
+   - Check port availability (8000 for API, 8501 for UI)
+   - Review application logs for specific error messages
+
+### Log Analysis
+
+Application logs provide detailed information for troubleshooting:
+
+```bash
+# View API server logs
+python foai_cli.py logs api
+
+# View web interface logs
+python foai_cli.py logs ui
+
+# Check system status
+python foai_cli.py status
+```
+
+### Performance Optimization
+
+For production deployments, consider:
+
+- **Caching**: Enable Redis caching for frequently accessed data
+- **Connection Pooling**: Configure AWS client connection pooling
+- **Resource Limits**: Set appropriate memory and CPU limits
+- **Monitoring**: Implement application performance monitoring
+
+---
+
+### Development Setup
+
+```bash
+# Clone your fork
+git clone https://github.com/your-username/fo.ai.git
+cd fo.ai
+
+# Install development dependencies
+pip install -r requirements.txt
+
+# Set up pre-commit hooks
+pre-commit install
+
+# Run tests
+python -m pytest tests/
+```
+
+---
+
+
+## Acknowledgments
 
 Having trouble? Here are some things to check:
 
@@ -183,5 +277,3 @@ Having trouble? Here are some things to check:
 Still stuck? Open an issue and we'll help you out!
 
 ---
-
-*Built with ♥ by people who got tired of surprise cloud bills*

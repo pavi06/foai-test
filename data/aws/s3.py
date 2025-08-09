@@ -151,9 +151,6 @@ def get_object_stats(bucket_name: str, prefix: Optional[str] = None) -> Dict:
     print(f"      📅 Last modified dates by group:")
     for group, last_modified in last_modified_map.items():
         print(f"         {group}: {format_datetime_utc530(last_modified)}")
-    
-    print(f"      🔍 [DEBUG] Raw object count from AWS: {object_count}")
-    print(f"      🔍 [DEBUG] Raw total size from AWS: {total_size} bytes")
 
     return {
         "TotalObjects": object_count,
@@ -244,6 +241,7 @@ def fetch_s3_data(
     Fetches S3 bucket and their Lifecycle Management policies, along with its storage details.
     Filters by bucket_names if provided.
     Uses region override if passed.
+    Limits to first 10 buckets if no specific bucket names are provided.
     
     Returns a list of dictionaries, one per bucket.
     """
@@ -254,17 +252,22 @@ def fetch_s3_data(
     
     all_buckets = get_all_buckets()
 
+    # If specific bucket names are provided, use those; otherwise limit to first 10
+    if bucket_names:
+        filtered_buckets = [b for b in all_buckets if b['Name'] in bucket_names]
+        print(f"📊 [S3 ANALYSIS] Filtered to {len(filtered_buckets)} specified buckets")
+    else:
+        filtered_buckets = all_buckets[:10]  # Limit to first 10 buckets
+        print(f"📊 [S3 ANALYSIS] Limited to first {len(filtered_buckets)} buckets")
+
     results = []
-    total_buckets = len(all_buckets)
+    total_buckets = len(filtered_buckets)
     analyzed_buckets = 0
     total_current_cost = 0
     total_potential_savings = 0
     
-    for i, bucket in enumerate(all_buckets, 1):
+    for i, bucket in enumerate(filtered_buckets, 1):
         bucket_name = bucket['Name']
-        if bucket_names and bucket_name not in bucket_names:
-            continue
-            
         print(f"\n📊 [S3 ANALYSIS] Progress: {i}/{total_buckets} buckets")
         
         try:
@@ -291,6 +294,8 @@ def fetch_s3_data(
     print(f"   💰 Total current monthly cost: ${total_current_cost:.2f}")
     print(f"   💡 Total potential savings: ${total_potential_savings:.2f}")
     print(f"   🎯 Buckets with optimization potential: {len([r for r in results if r.get('CostAnalysis', {}).get('PotentialSavings', 0) > 0])}")
+    if not bucket_names:
+        print(f"   🏆 Limited to first {len(filtered_buckets)} buckets")
     
     return results
 

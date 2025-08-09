@@ -8,20 +8,30 @@ import os
 
 # Global cache for pricing data
 _pricing_cache = {}
-DEBUG = os.getenv("DEBUG", "TRUE").lower() == "true"
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
+# Constants
+HOURS_PER_MONTH = 730
+DEFAULT_CPU_THRESHOLD = 10
+DEFAULT_MIN_UPTIME_HOURS = 24
+DEFAULT_MIN_SAVINGS_USD = 5
+MAX_RECOMMENDATIONS = 5
 
 def get_dynamic_ec2_pricing(instance_type: str, region: str, os_type: str = 'Linux') -> float:
     """
-    Get real-time EC2 pricing from AWS Pricing API
+    Get real-time EC2 pricing from AWS Pricing API with minimal smart fallback
     Returns hourly cost for the instance type in the specified region
     """
     cache_key = f"{instance_type}_{region}_{os_type}"
     
     # Check cache first
     if cache_key in _pricing_cache:
-        return _pricing_cache[cache_key]
+        cached_price = _pricing_cache[cache_key]
+        print(f"[PRICING CACHE] Using cached price for {instance_type}: ${cached_price:.4f}/hour")
+        return cached_price
     
     try:
+        print(f"[PRICING] Fetching current pricing for {instance_type} in {region}...")
         pricing_client = boto3.client('pricing', region_name='us-east-1')
         
         # Map region codes to AWS Pricing API region names
@@ -34,15 +44,22 @@ def get_dynamic_ec2_pricing(instance_type: str, region: str, os_type: str = 'Lin
             'ap-southeast-1': 'Asia Pacific (Singapore)',
             'ap-southeast-2': 'Asia Pacific (Sydney)',
             'ap-northeast-1': 'Asia Pacific (Tokyo)',
-            'sa-east-1': 'South America (Sao Paulo)'
+            'sa-east-1': 'South America (Sao Paulo)',
+            'ca-central-1': 'Canada (Central)',
+            'eu-west-2': 'Europe (London)',
+            'eu-west-3': 'Europe (Paris)',
+            'eu-north-1': 'Europe (Stockholm)',
+            'ap-south-1': 'Asia Pacific (Mumbai)',
+            'ap-northeast-2': 'Asia Pacific (Seoul)',
+            'ap-northeast-3': 'Asia Pacific (Osaka)',
+            'af-south-1': 'Africa (Cape Town)',
+            'me-south-1': 'Middle East (Bahrain)',
+            'me-central-1': 'Middle East (UAE)'
         }
         
         region_name = region_mapping.get(region, 'US East (N. Virginia)')
         
-        if DEBUG:
-            print(f"   🔍 [PRICING DEBUG] Using region name: {region_name}")
-        
-        # Start with basic filters and add more if needed
+        # Build filters for AWS Pricing API
         filters = [
             {'Type': 'TERM_MATCH', 'Field': 'serviceCode', 'Value': 'AmazonEC2'},
             {'Type': 'TERM_MATCH', 'Field': 'regionCode', 'Value': region_name},
@@ -52,20 +69,13 @@ def get_dynamic_ec2_pricing(instance_type: str, region: str, os_type: str = 'Lin
             {'Type': 'TERM_MATCH', 'Field': 'termType', 'Value': 'OnDemand'},
         ]
         
-        if DEBUG:
-            print(f"   🔍 [PRICING DEBUG] API filters: {filters}")
-        
         response = pricing_client.get_products(
             ServiceCode='AmazonEC2',
             Filters=filters,
-            MaxResults=10  # Increased to get more results
+            MaxResults=10
         )
         
-        if DEBUG:
-            print(f"   🔍 [PRICING DEBUG] API response count: {len(response.get('PriceList', []))}")
-        
         if response['PriceList']:
-            # Try to find the best match
             for price_item in response['PriceList']:
                 price_data = json.loads(price_item)
                 
@@ -82,10 +92,6 @@ def get_dynamic_ec2_pricing(instance_type: str, region: str, os_type: str = 'Lin
                     terms = price_data.get('terms', {})
                     on_demand_terms = terms.get('OnDemand', {})
                     
-                    if DEBUG:
-                        print(f"   🔍 [PRICING DEBUG] Found matching product: {item_instance_type} {item_os} {item_tenancy}")
-                        print(f"   🔍 [PRICING DEBUG] Found {len(on_demand_terms)} on-demand terms")
-                    
                     for term_id, term_data in on_demand_terms.items():
                         price_dimensions = term_data.get('priceDimensions', {})
                         for dimension_id, dimension_data in price_dimensions.items():
@@ -94,148 +100,103 @@ def get_dynamic_ec2_pricing(instance_type: str, region: str, os_type: str = 'Lin
                             
                             if usd_price and usd_price != '0':
                                 hourly_cost = float(usd_price)
-                                print(f"   💰 [PRICING] {instance_type} in {region}: ${hourly_cost:.4f}/hour")
+                                print(f"[PRICING] {instance_type} in {region}: ${hourly_cost:.4f}/hour")
                                 
                                 # Cache the result
                                 _pricing_cache[cache_key] = hourly_cost
                                 return hourly_cost
         
-        # If still no pricing found, try with fewer filters
-        print(f"   ⚠️  [PRICING] No pricing found with full filters, trying simplified filters")
+        # If no pricing found, try with Linux OS (most common)
+        if os_type != 'Linux':
+            print(f"[PRICING] No pricing found for {os_type}, trying Linux pricing")
+            return get_dynamic_ec2_pricing(instance_type, region, 'Linux')
         
-        # Simplified filters - just the essentials
-        simple_filters = [
-            {'Type': 'TERM_MATCH', 'Field': 'serviceCode', 'Value': 'AmazonEC2'},
-            {'Type': 'TERM_MATCH', 'Field': 'regionCode', 'Value': region_name},
-            {'Type': 'TERM_MATCH', 'Field': 'instanceType', 'Value': instance_type},
-            {'Type': 'TERM_MATCH', 'Field': 'termType', 'Value': 'OnDemand'},
-        ]
+        # Smart fallback based on instance family and size patterns
+        print(f"[PRICING] No pricing found from API for {instance_type}, using smart fallback")
+        fallback_price = _get_smart_fallback_pricing(instance_type, region)
         
-        if DEBUG:
-            print(f"   🔍 [PRICING DEBUG] Simplified filters: {simple_filters}")
-        
-        simple_response = pricing_client.get_products(
-            ServiceCode='AmazonEC2',
-            Filters=simple_filters,
-            MaxResults=10
-        )
-        
-        if simple_response['PriceList']:
-            for price_item in simple_response['PriceList']:
-                price_data = json.loads(price_item)
-                product_attributes = price_data.get('product', {}).get('attributes', {})
-                item_instance_type = product_attributes.get('instanceType', '')
-                item_os = product_attributes.get('operatingSystem', '')
-                
-                # Accept Linux or any OS if Linux not found
-                if (item_instance_type == instance_type and 
-                    (item_os == os_type or item_os in ['Linux', 'RHEL', 'SUSE'])):
-                    
-                    terms = price_data.get('terms', {})
-                    on_demand_terms = terms.get('OnDemand', {})
-                    
-                    for term_id, term_data in on_demand_terms.items():
-                        price_dimensions = term_data.get('priceDimensions', {})
-                        for dimension_id, dimension_data in price_dimensions.items():
-                            price_per_unit = dimension_data.get('pricePerUnit', {})
-                            usd_price = price_per_unit.get('USD', '0')
-                            
-                            if usd_price and usd_price != '0':
-                                hourly_cost = float(usd_price)
-                                print(f"   💰 [PRICING] {instance_type} in {region} (simplified): ${hourly_cost:.4f}/hour")
-                                
-                                # Cache the result
-                                _pricing_cache[cache_key] = hourly_cost
-                                return hourly_cost
-        
-        # If still no pricing found, use fallback pricing
-        print(f"   ⚠️  [PRICING] No pricing found from API for {instance_type}, using fallback pricing")
-        
-        # Fallback pricing based on common instance types
-        fallback_pricing = {
-            't3.micro': 0.0104,
-            't3.small': 0.0208,
-            't3.medium': 0.0416,
-            't3.large': 0.0832,
-            't3.xlarge': 0.1664,
-            't3.2xlarge': 0.3328,
-            't2.micro': 0.0116,
-            't2.small': 0.023,
-            't2.medium': 0.0464,
-            't2.large': 0.0928,
-            't2.xlarge': 0.1856,
-            't2.2xlarge': 0.3712,
-            'm5.large': 0.096,
-            'm5.xlarge': 0.192,
-            'm5.2xlarge': 0.384,
-            'm5.4xlarge': 0.768,
-            'c5.large': 0.085,
-            'c5.xlarge': 0.17,
-            'c5.2xlarge': 0.34,
-            'c5.4xlarge': 0.68,
-            'r5.large': 0.126,
-            'r5.xlarge': 0.252,
-            'r5.2xlarge': 0.504,
-            'r5.4xlarge': 1.008,
-        }
-        
-        if instance_type in fallback_pricing:
-            fallback_cost = fallback_pricing[instance_type]
-            print(f"   💰 [FALLBACK] Using fallback pricing for {instance_type}: ${fallback_cost:.4f}/hour")
-            _pricing_cache[cache_key] = fallback_cost
-            return fallback_cost
-        else:
-            # Estimate based on instance family
-            if '.' in instance_type:
-                family = instance_type.split('.')[0]
-                size = instance_type.split('.')[1]
-                
-                # Simple estimation based on size
-                size_multipliers = {
-                    'micro': 0.25,
-                    'small': 0.5,
-                    'medium': 1.0,
-                    'large': 2.0,
-                    'xlarge': 4.0,
-                    '2xlarge': 8.0,
-                    '4xlarge': 16.0,
-                    '8xlarge': 32.0,
-                }
-                
-                if size in size_multipliers:
-                    # Use t3.medium as base for estimation
-                    base_price = 0.0416 / size_multipliers['medium']
-                    estimated_price = base_price * size_multipliers.get(size, 1.0)
-                    print(f"   💰 [FALLBACK] Estimated pricing for {instance_type}: ${estimated_price:.4f}/hour")
-                    _pricing_cache[cache_key] = estimated_price
-                    return estimated_price
-        
-        # Default fallback
-        default_price = 0.05  # $0.05/hour = ~$36.50/month
-        print(f"   💰 [FALLBACK] Using default pricing for {instance_type}: ${default_price:.4f}/hour")
-        _pricing_cache[cache_key] = default_price
-        return default_price
+        print(f"[FALLBACK] Using smart fallback pricing for {instance_type}: ${fallback_price:.4f}/hour")
+        _pricing_cache[cache_key] = fallback_price
+        return fallback_price
         
     except Exception as e:
-        print(f"   ⚠️  [PRICING] Error fetching pricing for {instance_type}: {e}")
-        if DEBUG:
-            import traceback
-            print(f"   🔍 [PRICING DEBUG] Full error: {traceback.format_exc()}")
+        print(f"[PRICING] Error fetching pricing for {instance_type}: {e}")
         
-        # Use fallback pricing on error
-        fallback_pricing = {
-            't3.micro': 0.0104, 't3.small': 0.0208, 't3.medium': 0.0416,
-            't3.large': 0.0832, 't3.xlarge': 0.1664, 't3.2xlarge': 0.3328,
+        # Smart fallback on error
+        fallback_price = _get_smart_fallback_pricing(instance_type, region)
+        print(f"[FALLBACK] Using smart fallback pricing for {instance_type}: ${fallback_price:.4f}/hour")
+        _pricing_cache[cache_key] = fallback_price
+        return fallback_price
+
+def _get_smart_fallback_pricing(instance_type: str, region: str) -> float:
+    """
+    Smart fallback pricing based on instance family patterns and current AWS pricing
+    Uses minimal hardcoded values for common instance types only
+    """
+    # Minimal fallback for most common instance types (us-east-1 pricing as baseline)
+    # These are current prices as of 2024 - only the most commonly used instances
+    common_pricing = {
+        # T3 instances (most common)
+        't3.micro': 0.0104, 't3.small': 0.0208, 't3.medium': 0.0416,
+        't3.large': 0.0832, 't3.xlarge': 0.1664, 't3.2xlarge': 0.3328,
+        
+        # T2 instances (legacy but still common)
+        't2.micro': 0.0116, 't2.small': 0.023, 't2.medium': 0.0464,
+        't2.large': 0.0928, 't2.xlarge': 0.1856, 't2.2xlarge': 0.3712,
+        
+        # M5 instances (general purpose)
+        'm5.large': 0.096, 'm5.xlarge': 0.192, 'm5.2xlarge': 0.384,
+        'm5.4xlarge': 0.768, 'm5.8xlarge': 1.536, 'm5.12xlarge': 2.304,
+        
+        # C5 instances (compute optimized)
+        'c5.large': 0.085, 'c5.xlarge': 0.17, 'c5.2xlarge': 0.34,
+        'c5.4xlarge': 0.68, 'c5.9xlarge': 1.53, 'c5.12xlarge': 2.04,
+        
+        # R5 instances (memory optimized)
+        'r5.large': 0.126, 'r5.xlarge': 0.252, 'r5.2xlarge': 0.504,
+        'r5.4xlarge': 1.008, 'r5.8xlarge': 2.016, 'r5.12xlarge': 3.024,
+    }
+    
+    if instance_type in common_pricing:
+        return common_pricing[instance_type]
+    
+    # For unknown instance types, estimate based on family and size
+    if '.' in instance_type:
+        family = instance_type.split('.')[0]
+        size = instance_type.split('.')[1]
+        
+        # Base prices for common families (us-east-1 pricing)
+        family_base_prices = {
+            't3': 0.0416,  # t3.medium
+            't2': 0.0464,  # t2.medium
+            'm5': 0.096,   # m5.large
+            'c5': 0.085,   # c5.large
+            'r5': 0.126,   # r5.large
         }
         
-        if instance_type in fallback_pricing:
-            fallback_cost = fallback_pricing[instance_type]
-            print(f"   💰 [FALLBACK] Using fallback pricing for {instance_type}: ${fallback_cost:.4f}/hour")
-            _pricing_cache[cache_key] = fallback_cost
-            return fallback_cost
+        # Size multipliers (simplified)
+        size_multipliers = {
+            'micro': 0.25, 'small': 0.5, 'medium': 1.0, 'large': 2.0,
+            'xlarge': 4.0, '2xlarge': 8.0, '4xlarge': 16.0, '8xlarge': 32.0,
+            '12xlarge': 48.0, '16xlarge': 64.0, '24xlarge': 96.0,
+        }
         
-        _pricing_cache[cache_key] = 0.05
-        return 0.05
+        if family in family_base_prices and size in size_multipliers:
+            base_price = family_base_prices[family]
+            size_multiplier = size_multipliers[size]
+            estimated_price = base_price * size_multiplier
+            return estimated_price
+    
+    # Final fallback - reasonable default based on size
+    if 'micro' in instance_type: return 0.01
+    elif 'small' in instance_type: return 0.02
+    elif 'medium' in instance_type: return 0.04
+    elif 'large' in instance_type: return 0.08
+    elif 'xlarge' in instance_type: return 0.16
+    elif '2xlarge' in instance_type: return 0.32
+    elif '4xlarge' in instance_type: return 0.64
+    elif '8xlarge' in instance_type: return 1.28
+    else: return 0.05  # Generic default
 
 def get_reserved_instance_pricing(instance_type: str, region: str = 'us-east-1', os_type: str = 'Linux', term: str = '1yr') -> float:
     """
@@ -243,7 +204,7 @@ def get_reserved_instance_pricing(instance_type: str, region: str = 'us-east-1',
     Returns hourly cost in USD for reserved instances
     """
     try:
-        print(f"   💰 [PRICING] Fetching reserved instance pricing for {instance_type} ({term})")
+        print(f"[PRICING] Fetching reserved instance pricing for {instance_type} ({term})")
         
         pricing_client = boto3.client('pricing', region_name='us-east-1')
         
@@ -256,7 +217,17 @@ def get_reserved_instance_pricing(instance_type: str, region: str = 'us-east-1',
             'ap-southeast-1': 'Asia Pacific (Singapore)',
             'ap-southeast-2': 'Asia Pacific (Sydney)',
             'ap-northeast-1': 'Asia Pacific (Tokyo)',
-            'sa-east-1': 'South America (Sao Paulo)'
+            'sa-east-1': 'South America (Sao Paulo)',
+            'ca-central-1': 'Canada (Central)',
+            'eu-west-2': 'Europe (London)',
+            'eu-west-3': 'Europe (Paris)',
+            'eu-north-1': 'Europe (Stockholm)',
+            'ap-south-1': 'Asia Pacific (Mumbai)',
+            'ap-northeast-2': 'Asia Pacific (Seoul)',
+            'ap-northeast-3': 'Asia Pacific (Osaka)',
+            'af-south-1': 'Africa (Cape Town)',
+            'me-south-1': 'Middle East (Bahrain)',
+            'me-central-1': 'Middle East (UAE)'
         }
         
         region_name = region_mapping.get(region, 'US East (N. Virginia)')
@@ -290,14 +261,17 @@ def get_reserved_instance_pricing(instance_type: str, region: str = 'us-east-1',
         if response['PriceList']:
             for price_item in response['PriceList']:
                 price_data = json.loads(price_item)
+                
                 product_attributes = price_data.get('product', {}).get('attributes', {})
                 item_instance_type = product_attributes.get('instanceType', '')
                 item_os = product_attributes.get('operatingSystem', '')
                 item_tenancy = product_attributes.get('tenancy', '')
+                item_term = product_attributes.get('termLength', '')
                 
                 if (item_instance_type == instance_type and 
                     item_os == os_type and 
-                    item_tenancy == 'Shared'):
+                    item_tenancy == 'Shared' and
+                    term_value in item_term):
                     
                     terms = price_data.get('terms', {})
                     reserved_terms = terms.get('Reserved', {})
@@ -310,67 +284,27 @@ def get_reserved_instance_pricing(instance_type: str, region: str = 'us-east-1',
                             
                             if usd_price and usd_price != '0':
                                 hourly_cost = float(usd_price)
-                                print(f"   💰 [RESERVED PRICING] {instance_type} in {region}: ${hourly_cost:.4f}/hour")
+                                print(f"[PRICING] Reserved {instance_type} ({term}): ${hourly_cost:.4f}/hour")
                                 return hourly_cost
         
-        # If no reserved pricing found, use fallback pricing
-        print(f"   ⚠️  [PRICING] No reserved pricing found for {instance_type}, using fallback pricing")
+        # Smart fallback for reserved pricing (typically 40-60% of on-demand)
+        on_demand_price = get_dynamic_ec2_pricing(instance_type, region, os_type)
+        reserved_discount = 0.5 if term == '1yr' else 0.6  # 50% for 1yr, 60% for 3yr
+        reserved_price = on_demand_price * (1 - reserved_discount)
         
-        # Fallback reserved pricing (approximately 33% savings)
-        fallback_reserved_pricing = {
-            't3.micro': 0.007,
-            't3.small': 0.014,
-            't3.medium': 0.028,
-            't3.large': 0.056,
-            't3.xlarge': 0.112,
-            't3.2xlarge': 0.224,
-            't2.micro': 0.0078,
-            't2.small': 0.0154,
-            't2.medium': 0.0311,
-            't2.large': 0.0622,
-            't2.xlarge': 0.1244,
-            't2.2xlarge': 0.2488,
-            'm5.large': 0.064,
-            'm5.xlarge': 0.128,
-            'm5.2xlarge': 0.256,
-            'm5.4xlarge': 0.512,
-            'c5.large': 0.057,
-            'c5.xlarge': 0.114,
-            'c5.2xlarge': 0.228,
-            'c5.4xlarge': 0.456,
-            'r5.large': 0.084,
-            'r5.xlarge': 0.168,
-            'r5.2xlarge': 0.336,
-            'r5.4xlarge': 0.672,
-        }
-        
-        if instance_type in fallback_reserved_pricing:
-            fallback_cost = fallback_reserved_pricing[instance_type]
-            print(f"   💰 [FALLBACK] Using fallback reserved pricing for {instance_type}: ${fallback_cost:.4f}/hour")
-            return fallback_cost
-        else:
-            # Estimate based on instance family (33% savings from on-demand)
-            ondemand_cost = get_dynamic_ec2_pricing(instance_type, region, os_type)
-            estimated_reserved_cost = ondemand_cost * 0.67  # 33% savings
-            print(f"   💰 [FALLBACK] Estimated reserved pricing for {instance_type}: ${estimated_reserved_cost:.4f}/hour")
-            return estimated_reserved_cost
+        print(f"[FALLBACK] Estimated reserved pricing for {instance_type} ({term}): ${reserved_price:.4f}/hour")
+        return reserved_price
         
     except Exception as e:
-        print(f"   ⚠️  [PRICING] Error fetching reserved pricing for {instance_type}: {e}")
+        print(f"[PRICING] Error fetching reserved pricing for {instance_type}: {e}")
         
-        # Use fallback pricing on error
-        fallback_reserved_pricing = {
-            't3.micro': 0.007, 't3.small': 0.014, 't3.medium': 0.028,
-            't3.large': 0.056, 't3.xlarge': 0.112, 't3.2xlarge': 0.224,
-        }
+        # Fallback to estimated reserved pricing
+        on_demand_price = get_dynamic_ec2_pricing(instance_type, region, os_type)
+        reserved_discount = 0.5 if term == '1yr' else 0.6
+        reserved_price = on_demand_price * (1 - reserved_discount)
         
-        if instance_type in fallback_reserved_pricing:
-            fallback_cost = fallback_reserved_pricing[instance_type]
-            print(f"   💰 [FALLBACK] Using fallback reserved pricing for {instance_type}: ${fallback_cost:.4f}/hour")
-            return fallback_cost
-        
-        # Default fallback (33% savings from default on-demand)
-        return 0.033  # $0.033/hour = ~$24.09/month
+        print(f"[FALLBACK] Using estimated reserved pricing for {instance_type}: ${reserved_price:.4f}/hour")
+        return reserved_price
 
 
 import boto3
@@ -413,21 +347,21 @@ def fetch_ec2_instances(
                 instance_type = instance.get("InstanceType", "unknown")
                 availability_zone = instance.get("Placement", {}).get("AvailabilityZone", "unknown")
                 
-                print(f"\n🖥️  [EC2] Looking at instance {instance_id}...")
-                print(f"   📊 Type: {instance_type}")
-                print(f"   🌍 Zone: {availability_zone}")
+                print(f"\n[EC2] Looking at instance {instance_id}...")
+                print(f"   [INFO] Type: {instance_type}")
+                print(f"   [INFO] Zone: {availability_zone}")
                 
                 # Get CPU metrics
                 print(f"   📈 Checking CPU usage for {instance_id}...")
                 metrics = get_cpu_metrics(instance_id, region=region)
                 
                 # Get dynamic pricing based on instance type and region
-                print(f"   💰 [PRICING] Fetching pricing for {instance_type} in {region}")
+                print(f"   [PRICING] Fetching pricing for {instance_type} in {region}")
                 estimated_hourly_cost = get_dynamic_ec2_pricing(instance_type, region)
                 monthly_cost = estimated_hourly_cost * 730  # 730 hours per month
                 
-                print(f"   💰 Hourly cost: ${estimated_hourly_cost:.4f}")
-                print(f"   💰 Monthly cost: ${monthly_cost:.2f}")
+                print(f"   [COST] Hourly cost: ${estimated_hourly_cost:.4f}")
+                print(f"   [COST] Monthly cost: ${monthly_cost:.2f}")
                 
                 # Calculate potential savings based on CPU utilization
                 avg_cpu = metrics.get("AverageCPU", 0)
@@ -469,21 +403,21 @@ def fetch_ec2_instances(
                     potential_savings = 0.0
                     savings_reason = "High CPU usage - instance appears to be well-utilized"
 
-                print(f"   📊 7-day average CPU: {avg_cpu}%")
-                print(f"   📊 Current CPU: {current_cpu}%")
-                print(f"   💰 On-demand cost: ${monthly_cost:.2f}/month")
-                print(f"   💰 Reserved cost: ${reserved_monthly_cost:.2f}/month")
-                print(f"   💡 Best savings option: {savings_reason}")
-                print(f"   💡 Potential savings: ${potential_savings:.2f}/month")
+                print(f"   [CPU] 7-day average CPU: {avg_cpu}%")
+                print(f"   [CPU] Current CPU: {current_cpu}%")
+                print(f"   [COST] On-demand cost: ${monthly_cost:.2f}/month")
+                print(f"   [COST] Reserved cost: ${reserved_monthly_cost:.2f}/month")
+                print(f"   [SAVINGS] Best savings option: {savings_reason}")
+                print(f"   [SAVINGS] Potential savings: ${potential_savings:.2f}/month")
 
                 # Extract tags for analysis
                 tags = instance.get("Tags", [])
                 tag_dict = {tag.get("Key", ""): tag.get("Value", "") for tag in tags}
                 
                 if tags:
-                    print(f"   🏷️  Tags: {json.dumps(tag_dict, indent=6)}")
+                    print(f"   [TAGS] Tags: {json.dumps(tag_dict, indent=6)}")
                 else:
-                    print(f"   🏷️  No tags found")
+                    print(f"   [TAGS] No tags found")
 
                 instance_data = {
                     "InstanceId": instance_id,
@@ -509,18 +443,18 @@ def fetch_ec2_instances(
                 }
 
                 instances.append(instance_data)
-                print(f"   ✅ Instance {instance_id} analysis complete")
+                print(f"   [SUCCESS] Instance {instance_id} analysis complete")
 
-        print(f"\n📊 [EC2] Here's what I found:")
-        print(f"   📈 Analyzed {total_instances} instances")
-        print(f"   💰 Total monthly cost: ${sum(inst.get('estimated_monthly_cost', 0) for inst in instances):.2f}")
-        print(f"   💡 Potential savings: ${sum(inst.get('EstimatedSavings', 0) for inst in instances):.2f}")
-        print(f"   🎯 {len([inst for inst in instances if inst.get('EstimatedSavings', 0) > 0])} instances could save you money")
+        print(f"\n[EC2] Analysis Summary:")
+        print(f"   [INFO] Analyzed {total_instances} instances")
+        print(f"   [COST] Total monthly cost: ${sum(inst.get('estimated_monthly_cost', 0) for inst in instances):.2f}")
+        print(f"   [SAVINGS] Potential savings: ${sum(inst.get('EstimatedSavings', 0) for inst in instances):.2f}")
+        print(f"   [OPPORTUNITY] {len([inst for inst in instances if inst.get('EstimatedSavings', 0) > 0])} instances could save you money")
         
         return instances
         
     except Exception as e:
-        print(f"❌ [EC2] Oops! Something went wrong: {e}")
+        print(f"[ERROR] [EC2] Something went wrong: {e}")
         return []
 
 
@@ -540,7 +474,7 @@ def summarize_cost_by_region(instances: List[dict]) -> List[dict]:
         "estimated_hourly_cost": float
     }
     """
-    print(f"\n🌍 [EC2] Breaking down costs by region...")
+    print(f"\n[EC2] Breaking down costs by region...")
     
     region_summary = defaultdict(lambda: {"instance_count": 0, "estimated_hourly_cost": 0.0, "estimated_monthly_cost": 0.0})
 
@@ -560,9 +494,9 @@ def summarize_cost_by_region(instances: List[dict]) -> List[dict]:
         reverse=True
     )
     
-    print(f"📊 [EC2] Regional breakdown:")
+    print(f"[EC2] Regional breakdown:")
     for region_data in result:
-        print(f"   🌍 {region_data['region']}: {region_data['instance_count']} instances, "
+        print(f"   [REGION] {region_data['region']}: {region_data['instance_count']} instances, "
               f"${region_data['estimated_monthly_cost']:.2f}/month")
     
     return result
@@ -571,7 +505,7 @@ def clear_pricing_cache():
     """Clear the pricing cache"""
     global _pricing_cache
     _pricing_cache.clear()
-    print("💰 [PRICING] Cache cleared")
+    print("[PRICING] Cache cleared")
 
 def get_pricing_cache_stats():
     """Get pricing cache statistics"""
@@ -584,9 +518,9 @@ def get_pricing_cache_stats():
 def print_pricing_cache_stats():
     """Print pricing cache statistics"""
     stats = get_pricing_cache_stats()
-    print(f"💰 [PRICING] Cache stats: {stats['cache_size']} cached prices")
+    print(f"[PRICING] Cache stats: {stats['cache_size']} cached prices")
     if stats['cached_instances']:
-        print(f"💰 [PRICING] Cached instances: {', '.join(stats['cached_instances'][:5])}{'...' if len(stats['cached_instances']) > 5 else ''}")
+        print(f"[PRICING] Cached instances: {', '.join(stats['cached_instances'][:5])}{'...' if len(stats['cached_instances']) > 5 else ''}")
 
 def get_downsized_instance_type(current_instance_type: str) -> str:
     """
@@ -642,7 +576,7 @@ def calculate_downsizing_savings(current_instance_type: str, target_instance_typ
         }
         
     except Exception as e:
-        print(f"   ⚠️  [DOWNSIZE] Error calculating downsizing savings: {e}")
+        print(f"[DOWNSIZE] Error calculating downsizing savings: {e}")
         return {
             "savings": 0.0,
             "reason": f"Error calculating downsizing savings for {current_instance_type}"
@@ -698,15 +632,15 @@ def get_ebs_pricing(region: str = 'us-east-1') -> float:
                         # Convert hourly price to monthly (730 hours)
                         hourly_price = float(usd_price)
                         monthly_price = hourly_price * 730
-                        print(f"   💰 [EBS PRICING] EBS cost for {region}: ${monthly_price:.4f}/GB/month")
+                        print(f"[EBS PRICING] EBS cost for {region}: ${monthly_price:.4f}/GB/month")
                         return monthly_price
         
         # If no pricing found, return 0 (no savings possible)
-        print(f"   ⚠️  [EBS PRICING] No EBS pricing found for {region}")
+        print(f"[EBS PRICING] No EBS pricing found for {region}")
         return 0.0
         
     except Exception as e:
-        print(f"   ⚠️  [EBS PRICING] Error fetching EBS pricing: {e}")
+        print(f"[EBS PRICING] Error fetching EBS pricing: {e}")
         return 0.0
 
 def calculate_stop_instance_savings(instance_type: str, region: str, os_type: str = 'Linux') -> dict:
@@ -736,7 +670,7 @@ def calculate_stop_instance_savings(instance_type: str, region: str, os_type: st
         }
         
     except Exception as e:
-        print(f"   ⚠️  [STOP] Error calculating stop savings: {e}")
+        print(f"[STOP] Error calculating stop savings: {e}")
         return {
             "savings": 0.0,
             "reason": f"Error calculating stop savings for {instance_type}"
